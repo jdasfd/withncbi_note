@@ -74,13 +74,15 @@ faops some ../RefSeq/plasmid.fa <(tsv-filter refseq.sizes --gt 2:2000) refseq.fa
 # extract plasmids over 2000 from plasmid.fa to refseq.fa
 ```
 
-- MinHash algorithm for
+- MinHash algorithm for representing reads
 
 [MinHash](https://en.wikipedia.org/wiki/MinHash) (or the min-wise independent permutations locality sensitive hashing scheme) is a technique for quickly estimating how similar two sets are.
 
 Sketches could reduce representations of sequences for `mash` comparison. Sketches allow fast distance estimations with low storage and memory requirements.
 
 [Explanation](https://mash.readthedocs.io/en/latest/sketches.html): Each k-mer in a sequence is hashed, which creates a pseudo-random identifier. By sorting them, a small subset can represent the entire sequence (min-hashes). The more similar another sequence is, the more min-hashes it is likely to share.
+
+`mash sketch -h` could give you the help information.
 
 ```bash
 cat refseq.fa | 
@@ -125,7 +127,7 @@ cat job/000 | wc -l
 #1000
 # The refseq.fa were splited into multiple files with 1000 taxons a file
 
-# Each 
+# MinHash for all files sketch
 find job -maxdepth 1 -type f -name "[0-9]??" | sort |
     parallel -j 4 --line-buffer '
         echo >&2 "==> {}"
@@ -135,3 +137,22 @@ find job -maxdepth 1 -type f -name "[0-9]??" | sort |
 # -type: f: a regular file; d: directory; l: symbolic link; c: character devices; b: block devices; p: named pipe; s: socket
 # -maxdepth [a non-negative integer]: Descend at most levels of directories below the command line arguments.
 # --line-buffer: buffer output on line basis.
+```
+
+- Dist among all .msh sketch files
+
+Estimate the distance of each query sequence to the reference. Both the reference and queries can be Mash sketch files (`.msh`) with matching k-mer sizes. The output fields are: (reference-ID, query-ID, distance, p-value, shared-hashes).
+
+`mash dist -h` could give you the help information.
+
+Usage: `mash dist [options] <reference> <query> [<query>] ...`
+
+```bash
+# Count distance from all .msh results
+find job -maxdepth 1 -type f -name "[0-9]??" | sort |
+    parallel -j 4 --line-buffer '
+        echo >&2 "==> {}"
+        mash dist -p 6 {}.msh refseq.plasmid.k21s1000.msh > {}.tsv
+    '
+# -p <int>: threads
+```
