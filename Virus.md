@@ -1,4 +1,4 @@
-#  Aligning HIV species-specific DNA-tags
+# Aligning HIV species-specific DNA-tags
 
 ## NCBI Assembly
 
@@ -7,7 +7,7 @@ mkdir -p /mnt/e/data/alignment/Viruses
 cd /mnt/e/data/alignment/Viruses
 
 mysql -ualignDB -palignDB ar_refseq -e "
-	SELECT 
+    SELECT 
         organism_name, species, genus, ftp_path, assembly_level
     FROM ar 
     WHERE 1=1
@@ -60,7 +60,7 @@ bash ASSEMBLY/Viruses.assembly.rsync.sh
 bash ASSEMBLY/Viruses.assembly.collect.sh
 ```
 
-##  Count strains
+## Count strains
 
 ```bash
 cd /mnt/e/data/alignment/Viruses
@@ -131,7 +131,7 @@ parallel --no-run-if-empty --linebuffer -k -j 4 '
     )
 ```
 
-##  Raw phylogenetic tree by MinHash
+## Raw phylogenetic tree by MinHash
 
 ```bash
 mkdir -p /mnt/e/data/alignment/Viruses/mash
@@ -194,7 +194,7 @@ nw_display -s -b 'visibility:hidden' -w 600 -v 30 tree.nwk |
     rsvg-convert -o /mnt/e/data/alignment/Viruses/mash/Viruses.png
 ```
 
-##  Groups and targets
+## Groups and targets
 
 We chose a  genome first sequenced as a reference.
 
@@ -236,15 +236,15 @@ L_Hum_HIV_1_CRF03_AB
 EOF
 ```
 
-##  HIV: prepare
+## HIV: prepare
 
 ```bash
 cd /mnt/e/data/alignment/Viruses
 
 # prep
 egaz template \
-	ASSEMBLY \
-	--prep -o GENOMES \
+    ASSEMBLY \
+    --prep -o GENOMES \
     $( cat taxon/group_target.tsv | sed -e '1d' | cut -f 4 | parallel -j 1 echo " --perseq {} " ) \
     $( cat taxon/chr-level.list | parallel -j 1 echo " --perseq {} " ) \
     --min 5000 --about 5000000 \
@@ -263,7 +263,7 @@ for n in $(cat taxon/group_target.tsv | sed -e '1d' | cut -f 4 ) \
 done
 ```
 
-##  HIV: run
+## HIV: run
 
 ```bash
 cd /mnt/e/data/alignment/Viruses/
@@ -292,7 +292,7 @@ bash groups/HIV/1_pair.sh
 bash groups/HIV/3_multi.sh
 ```
 
-##  fas from axt files
+## fas from axt files
 
 ```bash
 cd /mnt/e/data/alignment/Viruses/groups/HIV/Pairwise
@@ -301,9 +301,8 @@ foreach dir in $(find -maxdepth 1 -mindepth 1 -type d); do
     name=$(basename ${dir})
     p=${name%%vs*}
     q=${name##vs*}
-	fasops axt2fas ./${name}/axtNet/*.axt.gz -o ./${name}/axtNet/result.fasta \
-			-l 1000 -t ${p} -q ${q} \
-			-s /mnt/e/data/alignment/Viruses/GENOMES/${q}/chr.sizes
+    fasops axt2fas ./${name}/axtNet/*.axt.gz -o ./${name}/axtNet/result.fasta \
+        -l 1000 -t ${p} -q ${q} \
+        -s /mnt/e/data/alignment/Viruses/GENOMES/${q}/chr.sizes
 done
 ```
-

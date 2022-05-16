@@ -1,4 +1,4 @@
-#  Get data from NCBI
+# Get data from NCBI
 
 Using rsync or aspera
 
@@ -38,17 +38,17 @@ tar xvfz /mnt/e/data/NCBI/taxonomy/taxdump.tar.gz -C /mnt/e/data/NCBI/taxdmp
 
 Because my WSL2 broke for GFW, I just can't install brew for manipulating apps.
 
-#  Download Staphylococcus genomes
+## Download Staphylococcus genomes
 
-##  Genomes from bacteria_gr
+### Genomes from bacteria_gr
 
-### Choose strains from genus Staphylococcus
+#### Choose strains from genus Staphylococcus
 
 ```bash
 mkdir -p ~/data/bacteria/summary
 cd ~/data/bacteria/summary
 mysql -ualignDB -palignDB gr_prok -e '
-	SELECT taxonomy_id `#strain_taxonomy_id`,
+    SELECT taxonomy_id `#strain_taxonomy_id`,
            organism_name `strain`,
            species `species`,
            genus `genus`,
@@ -56,58 +56,58 @@ mysql -ualignDB -palignDB gr_prok -e '
            `code`,
            chr
     FROM gr
-	WHERE 1=1
-	AND genus LIKE "%Staphylococcus%"
+    WHERE 1=1
+    AND genus LIKE "%Staphylococcus%"
     AND (status LIKE "%Complete%"
-    	OR status LIKE "%Chromosome%")
+        OR status LIKE "%Chromosome%")
     AND species NOT LIKE "%Candidatus%"
     AND taxonomy_id != species_id
     AND organism_name NOT LIKE "%,%"
     AND (chr IS NOT NULL OR LENGTH(CHR) > 0)
     AND genus IS NOT NULL
     AND (LENGTH(wgs) = 0 OR wgs IS NULL)
-	' | 
-	grep -v "^#" > GENUS_Sta.tsv
+    ' | 
+    grep -v "^#" > GENUS_Sta.tsv
 
 cat GENUS_Sta.tsv |
-	mlr --itsv --ocsv cat > GENUS_Sta.csv
+    mlr --itsv --ocsv cat > GENUS_Sta.csv
 ```
 
-### Init genome report database
+#### Init genome report database
 
 ```bash
 echo '#strain_taxonomy_id,strain,species,genus,subgroup,code,accession,abbr' > ABBR.csv.tmp
 cat GENUS_Sta.csv | grep -v '^#' |
-	perl ~/Scripts/withncbi/taxon/abbr_name.pl -c "2,3,4" -s "," -m 0 --shortsub |
-	sort -t',' -k5,5 -k4,4 -k3,3 -k6,6 >> ABBR.csv.tmp
-	
+    perl ~/Scripts/withncbi/taxon/abbr_name.pl -c "2,3,4" -s "," -m 0 --shortsub |
+    sort -t',' -k5,5 -k4,4 -k3,3 -k6,6 >> ABBR.csv.tmp
+
 cat ABBR.csv.tmp |
-	grep -v "^#" |
+    grep -v "^#" |
     cut -d, -f 3 |
     uniq -c |
     sort -nr |
     head -n 10
 
 cat ABBR.csv.tmp |
-	perl -nla -F"," -e '
-		if (
-			$F[4] eq q{Staphylococcus}
-			) {
-				$F[4] =~ /^NZ_/ and next;
-			}
-			
-			print;
-	' > ABBR.csv
+    perl -nla -F"," -e '
+        if (
+            $F[4] eq q{Staphylococcus}
+            ) {
+                $F[4] =~ /^NZ_/ and next;
+            }
+
+            print;
+    ' > ABBR.csv
 
 cat ABBR.csv |
-	grep -v "^#" |
+    grep -v "^#" |
     cut -d, -f 3 |
     uniq -c |
     sort -nr |
     head -n 10
 ```
 
-### Download sequences and regenerate lineage information
+#### Download sequences and regenerate lineage information
 
 ```bash
 mkdir -p ~/data/bacteria/GENOMES
@@ -121,7 +121,7 @@ cat ../summary/ABBR.csv |
 
 echo "#strain_name,accession,strain_taxon_id" > bac_name_acc_id.csv
 cat ../summary/ABBR.csv |
-	grep -v '^#' |
+    grep -v '^#' |
     perl -nla -F"," -e '
         my $acc = $F[6];
         $acc =~ s/"//g;
@@ -189,9 +189,7 @@ wc -l subgroup.list genus.list.tmp species.list
 rm *.tmp
 ```
 
-
-
-## Genomes from bacteria_ar: assembly
+### Genomes from bacteria_ar: assembly
 
 ```bash
 export RANK_NAME=bacteria_ar
@@ -241,8 +239,8 @@ unset RANK_NAME
 
 ```bash
 perl ~/Scripts/withncbi/taxon/assembly_prep.pl \
-	-f bacteria_ar.assembly.tsv \
-	-o ASSEMBLY
+    -f bacteria_ar.assembly.tsv \
+    -o ASSEMBLY
 
 bash ASSEMBLY/bacteria_ar.assembly.rsync.sh
 # check whether bacteria_ar downloaded successfully
@@ -255,8 +253,6 @@ cd ~/data/alignment/bacteria_ar
 # grep -Ev could filter the blank and comment lines
 cat ASSEMBLY/bacteria_ar.assembly.collect.csv | cut -d "," -f 2 | grep -v "Organism_name" | grep -Ev "^$|[#;]" | cut -d " " -f 1,2 | sort | uniq -c
 ```
-
-
 
 ```bash
 cat bacteria_ar.assembly.tsv | cut -f 3 | sed '1d' | uniq -c > bacteria_ar_info.tsv
@@ -276,11 +272,9 @@ done
 echo "Copy completed"
 ```
 
+## Build db of genomes for blast
 
-
-#  Build db of genomes for blast
-
-##  Generate database of Staphylococcus in blast
+### Generate database of Staphylococcus in blast
 
 ```bash
 cd ~/data/bacteria/gr_db
@@ -289,9 +283,7 @@ makeblastdb -in Sta_genus.fa -dbtype nucl -parse_seqids \
 -out Sta_genus -title "Staphylococcus_Genome_DataBase"
 ```
 
-
-
-##  Align primer within database using blastn
+### Align primer within database using blastn
 
 ```bash
 cd ~/data/bacteria/gr_db
@@ -300,9 +292,7 @@ blastn -query ../biofire/S_aureus_primer.fasta -db Sta_genus -task blastn -out t
 blastn -query ../biofire/S_epidermidis_primer.fasta -db Sta_genus -task blastn -outfmt 7 -out ../biofire/test.txt -num_threads 6
 ```
 
-
-
-##  Decompress all the genomic fasta to one file
+### Decompress all the genomic fasta to one file
 
 ```bash
 gunzip -c -d *.gz >> ../Sta_genus_db/db.fna
@@ -341,8 +331,6 @@ blastn -query ~/data/biofire/Sau-amplify-R.fa -db Sta_genus_ar \
 -out ~/data/biofire/blastn/Sau-amplify-R.tsv
 ```
 
-
-
 ```bash
 cat Sau-gyrB-R.tsv | sed "1,5d" | sed "1i\#qacc\tsacc\tidentity\talilength\tmismatches\tgap\tqstart\tqend\tsstart\tsend\tevalue\tbitscore" > Sau-gyrB-R1.tmp.tsv
 
@@ -357,8 +345,6 @@ tsv-uniq -H --a 2 Sau-gyrB.tmp.tsv > Sau-gyrB-1.tmp.tsv
 tsv-join -H -f bac_acc_info.tsv -k sacc --append-fields strains Sau-gyrB-1.tmp.tsv > Sau-gyrB-info.tsv
 cat Sau-gyrB-info.tsv | cut -f 2 | sed '1d' | sort | uniq -c > Sau-gyrB.tsv
 ```
-
-
 
 ```bash
 mysql -ualignDB -palignDB ar_refseq -e "
@@ -393,12 +379,7 @@ blastn -query ~/data/biofire/Pae-amplify-F.fa -db ref_prok_rep_genomes \
 -out /mnt/c/Users/59717/Desktop/Blast/Pae-amp-F.tsv
 ```
 
-
-
-
-
 ```bash
 samtools faidx Pseudomonas_aeruginosa.fasta NC_002516.2:1116019-1116038 > Pae-amp.fasta
 blastn -query ../Pae-amp.fasta -db Genomes -task blastn -out ../Pae-amp.txt -num_threads 6
 ```
-
