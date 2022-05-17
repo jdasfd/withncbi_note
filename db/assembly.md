@@ -201,49 +201,56 @@ cd ..
 cat organism_name.tsv |
     parallel --line-buffer '
         nwr member {} |
-        grep -v '^\#' >> organism_name.all.tsv
+        grep -v '^\#' >> organism_name.all.tmp.tsv
     '
-sed -i '1i#tax_id\tsci_name\trank\tdivision' organism_name.all.tsv
+
+cat organism_name.all.tmp.tsv |
+    tsv-filter --invert --str-eq 3:serogroup |
+    tsv-filter --invert --str-eq 3:serotype |
+    tsv-filter --invert --str-eq 2:variant |
+    tsv-filter --invert --str-eq 3:"forma specialis" |
+    tsv-filter --invert --str-eq 3:"Salmonella bongori" |
+    tsv-filter --invert --str-eq 3:Bacteria |
+    tsv-filter --invert --str-eq 3:varietas |
+    tsv-filter --invert --str-eq 3:isolate |
+    sed '1i#tax_id\tsci_name\trank\tdivision' \
+    > organism_name.all.tsv
 
 cat organism_name.all.tsv | 
     tsv-summarize -H -g 3 --count |
     mlr --itsv --omd cat
 ```
 
-| rank               | count |
-| ------------------ | ----- |
-| species            | 186   |
-| strain             | 24562 |
-| subspecies         | 166   |
-| no rank            | 1900  |
-| biotype            | 7     |
-| isolate            | 124   |
-| serogroup          | 134   |
-| serotype           | 234   |
-| forma specialis    | 437   |
-| Salmonella bongori | 1     |
-| Bacteria           | 1     |
-| varietas           | 1     |
+| rank       | count |
+| ---------- | ----- |
+| species    | 186   |
+| strain     | 24562 |
+| subspecies | 166   |
+| no rank    | 1900  |
+| biotype    | 7     |
 
 ```bash
 cat organism_name.tsv |
     parallel --line-buffer '
         nwr member {} -r species -r strain |
-        grep -v '^\#' >> organism_name.strain.tsv
+        grep -v '^\#' >> organism_name.strain.tmp.tsv
     '
-sed -i '1i#tax_id\tsci_name\trank\tdivision' organism_name.strain.tsv
+
+cat organism_name.strain.tmp.tsv |
+    tsv-filter --invert --str-eq 3:"Gluconobacter oxydans" |
+    tsv-filter --invert --str-eq 3:Bacteria |
+    sed '1i#tax_id\tsci_name\trank\tdivision' \
+    > organism_name.strain.tsv
 
 cat organism_name.strain.tsv | 
     tsv-summarize -H -g 3 --count |
     mlr --itsv --omd cat
 ```
 
-| rank                  | count |
-| --------------------- | ----- |
-| species               | 186   |
-| strain                | 24562 |
-| Gluconobacter oxydans | 1     |
-| Bacteria              | 1     |
+| rank    | count |
+| ------- | ----- |
+| species | 186   |
+| strain  | 24562 |
 
 ### Species with assemblies
 
@@ -295,5 +302,100 @@ done |
     (echo -e 'species_id\tspecies\tRS\tCHR' && cat) \
     > species.count.tsv
 
+cat species.count.tsv |
+    tsv-filter -H --ge CHR:5 |
+    tsv-filter -H --invert --lt RS:30 |
+    mlr --itsv --omd cat > species.count.md
+```
 
+## Download all assemblies
+
+- Extract assembly info from database
+
+```bash
+cd /mnt/d/data/bacteria
+
+# Species with 2 or more genomes were retained.
+SPECIES=$(
+    cat species.count.tsv |
+        tsv-filter -H --ge CHR:2 |
+        sed '1d' |
+        cut -f 1 |
+        tr "\n" "," |
+        sed 's/,$//'
+)
+
+# Includs all strains without those obligate intracellular bac.
+echo "
+    SELECT
+        organism_name || ' ' || assembly_accession AS name,
+        species, genus, ftp_path, assembly_level
+    FROM ar
+    WHERE 1=1
+        AND species_id IN ($SPECIES)
+        AND species NOT LIKE '% sp.%'
+        AND organism_name NOT LIKE '% sp.%'
+        AND assembly_level IN ('Complete Genome', 'Chromosome')
+    " |
+    sqlite3 -tabs ~/.nwr/ar_refseq.sqlite |
+    tsv-filter --invert --str-eq 5:"Chromosome" |
+    tsv-filter --str-ne 3:"Chlamydia" |
+    tsv-filter --str-ne 3:"Mycoplasma" |
+    tsv-filter --str-ne 3:"Rickettsia" |
+    tsv-filter --str-ne 3:"Coxiella" |
+    tsv-filter --str-ne 3:"Ehrlichia" |
+    tsv-filter --str-ne 2:"Orientia tsutsugamushi" \
+    >> raw.tsv
+
+# Create abbr.
+cat raw.tsv |
+    grep -v '^#' |
+    tsv-uniq |
+    perl ~/Scripts/withncbi/taxon/abbr_name.pl -c "1,2,3" -s '\t' -m 3 --shortsub |
+    (echo -e '#name\tftp_path\torganism\tassembly_level' && cat ) |
+    perl -nl -a -F"," -e '
+        BEGIN{my %seen};
+        /^#/ and print and next;
+        /^organism_name/i and next;
+        $seen{$F[3]}++; # ftp_path
+        $seen{$F[3]} > 1 and next;
+        $seen{$F[5]}++; # abbr_name
+        $seen{$F[5]} > 1 and next;
+        printf qq{%s\t%s\t%s\t%s\n}, $F[5], $F[3], $F[1], $F[4];
+        ' |
+    keep-header -- sort -k3,3 -k1,1 \
+    > Bac_strains.assembly.tsv
+
+cat Bac_strains.assembly.tsv |
+    tsv-uniq -f 1 --repeated
+
+# Comment out unneeded strains
+
+# cp Bac_strains.assembly.tsv ~/Scripts/withncbi/pop
+
+# Cleaning
+rm raw*.*sv
+```
+
+- Extract ftp and rsync from NCBI
+
+```bash
+cd /mnt/d/data/bacteria
+
+perl ~/Scripts/withncbi/taxon/assembly_prep.pl \
+    -f ~/Scripts/withncbi/pop/Bac_strains.assembly.tsv \
+    -o ASSEMBLY
+
+# Remove dirs not in the list
+
+find ASSEMBLY -maxdepth 1 -mindepth 1 -type d |
+    tr "/" "\t" |
+    cut -f 2 |
+    tsv-join --exclude -k 1 -f ASSEMBLY/rsync.tsv -d 1 |
+    parallel --no-run-if-empty --linebuffer -k -j 1 '
+        echo Remove {}
+        rm -fr ASSEMBLY/{}
+    '
+
+bash ASSEMBLY/Bac_strains.assembly.rsync.sh
 ```
