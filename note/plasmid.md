@@ -205,6 +205,12 @@ cat redundant.tsv | wc -l
 
 - Deal with those redundant plasmids
 
+My understanding of this:
+
+Because of the redundant.tsv contained info of all nodes distance that smaller than 0.01.
+
+So using the `Graph::Undirected` to link all nodes. Those repeated nodes will be excluded.
+
 ```bash
 cat redundant.tsv |
     perl -nla -F"\t" -MGraph::Undirected -e '
@@ -229,5 +235,76 @@ cat redundant.tsv |
 # -F: split() pattern for -a switch (//'s are optional)
 # -l[octal]: enable line ending processing, specifies line terminator
 # -[mM][-]module: execute use/no module... before executing program
-# Graph::Undirected allows you to create undirected graphs.
+# Graph::Undirected:
+# allows you to create undirected graphs
+# add_edge: Add the edge to the graph
+# connected_components: for an undirected graph, returns the vertices of the connected components of the graph as a list of anonymous arrays.
+
+cat connected_components.tsv | head -n 3
+#NZ_CP059740.1   NZ_CP059748.1   NZ_CP059794.1   NZ_CP059817.1   NZ_CP062266.1   NZ_CP072708.1
+#NC_016979.1     NZ_CP023921.1   NZ_CP024043.1   NZ_CP029589.1   NZ_CP029592.1   NZ_CP045021.1   NZ_CP054976.1  NZ_CP069457.1   NZ_CP069492.1   NZ_CP069555.1   NZ_CP069585.1   NZ_CP079119.1   NZ_CP079177.1   NZ_CP079622.1   NZ_CP079650.1  NZ_CP079662.1    NZ_CP079696.1   NZ_CP079812.1   NZ_CP083065.1   NZ_LR890626.1
+#NZ_CP021666.1   NZ_CP022935.1
+
+cat connected_components.tsv |
+    perl -nla -F"\t" -e 'printf qq{%s\n}, $_ for @F' \
+    > components.list
+# change all components to one name a line
+
+wc -l connected_components.tsv components.list
+#3920 connected_components.tsv
+#24159 components.list
+#28079 total
 ```
+
+- Extract those redundant plasmids
+
+```bash
+faops some -i refseq.fa components.list stdout > refseq.nr.fa
+faops some refseq.fa <(cut -f 1 connected_components.tsv) stdout >> refseq.nr.fa
+
+rm -fr job
+```
+
+## Grouping by MinHash
+
+All non-redundant plasmids got from the previous steps will be grouped by MinHash again.
+
+- MinHash algorithm for representing reads
+
+```bash
+mkdir /mnt/d/data/plasmid/grouping
+cd /mnt/d/data/plasmid/grouping
+
+cat ../nr/refseq.nr.fa |
+    mash sketch -k 21 -s 1000 -i -p 8 - -o refseq.nr.k21s1000.msh
+```
+
+- Split
+
+```bash
+mkdir -p job
+faops size ../nr/refseq.nr.fa |
+    cut -f 1 |
+    split -l 1000 -a 3 -d - job/
+
+find job -maxdepth 1 -type f -name "[0-9]??" | sort |
+    parallel -j 4 --line-buffer '
+        echo >&2 "==> {}"
+        faops some ../nr/refseq.nr.fa {} stdout |
+            mash sketch -k 21 -s 1000 -i -p 6 - -o {}.msh
+    '
+
+find job -maxdepth 1 -type f -name "[0-9]??" | sort |
+    parallel -j 4 --line-buffer '
+        echo >&2 "==> {}"
+        mash dist -p 6 {}.msh refseq.nr.k21s1000.msh > {}.tsv
+    '
+
+find job -maxdepth 1 -type f -name "[0-9]??" | sort |
+    parallel -j 1 '
+        cat {}.tsv
+    ' \
+    > dist_full.tsv
+```
+
+- Dist
