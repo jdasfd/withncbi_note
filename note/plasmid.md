@@ -1,6 +1,6 @@
 # Learning and Classifying Plasmids
 
-My script was originated from [plasmid.md](https://github.com/wang-q/withncbi/blob/master/taxon/plasmid.md).
+My script was originated from my teacher [plasmid.md](https://github.com/wang-q/withncbi/blob/master/taxon/plasmid.md).
 
 I rewrote some commands according to my own demanding and added some notes in correspoding locations.
 
@@ -85,6 +85,8 @@ Sketches could reduce representations of sequences for `mash` comparison. Sketch
 `mash sketch -h` could give you the help information.
 
 ```bash
+cd /mnt/d/data/plasmid/nr
+
 cat refseq.fa | 
     mash sketch -k 21 -s 1000 -i -p 8 - -o refseq.plasmid.k21s1000.msh
 # -k: k-mer size
@@ -107,10 +109,12 @@ cat refseq.fa |
 This step is using `split` to split a big file `refseq.fa` into small pieces, then using files splited in `mash sketch` (parallel could reduce time).
 
 ```bash
+cd /mnt/d/data/plasmid/nr
 mkdir -p job
 faops size refseq.fa |
     cut -f 1 |
     split -l 1000 -a 3 -d - job/
+# split arguments:
 # -l, --lines=NUMBER: generate CHUNKS output files
 # CHUNKS: N - split into N files based on size of input;
 #         K/N - output Kth of N to stdout
@@ -120,8 +124,8 @@ faops size refseq.fa |
 #         r/K/N - likewise but only output Kth of N to stdout
 # -a: generate suffixes of length N (default 2)
 # -d: use numeric suffixes starting at 0, not alphabetic
-# -: read from stdin
 # -a 3 -d means the output file will be: 000, 001, 002, 003
+# -: read from stdin
 
 cat job/000 | wc -l
 #1000
@@ -148,6 +152,8 @@ Estimate the distance of each query sequence to the reference. Both the referenc
 Usage: `mash dist [options] <reference> <query> [<query>] ...`
 
 ```bash
+cd /mnt/d/data/plasmid/nr
+
 # Count distance from all .msh results
 find job -maxdepth 1 -type f -name "[0-9]??" | sort |
     parallel -j 4 --line-buffer '
@@ -155,4 +161,73 @@ find job -maxdepth 1 -type f -name "[0-9]??" | sort |
         mash dist -p 6 {}.msh refseq.plasmid.k21s1000.msh > {}.tsv
     '
 # -p <int>: threads
+
+cat job/000.tsv | head
+#NZ_D13972.1     NZ_D13972.1     0       0       1000/1000
+#NZ_M10917.1     NZ_D13972.1     1       1       0/1000
+#NZ_U40997.1     NZ_D13972.1     1       1       0/1000
+#NZ_U35036.1     NZ_D13972.1     1       1       0/1000
+#NZ_L25424.1     NZ_D13972.1     1       1       0/1000
+#NZ_M60875.1     NZ_D13972.1     1       1       0/1000
+#NC_021737.1     NZ_D13972.1     1       1       0/1000
+#NC_010097.1     NZ_D13972.1     1       1       0/1000
+#NC_002100.1     NZ_D13972.1     1       1       0/1000
+#NZ_CP010448.1   NZ_D13972.1     1       1       0/1000
+#each col means:
+#ref_ID query_ID    dist    p-val   shared_hashes
+```
+
+- Use dist to find all redundant plasmids
+
+```bash
+# distance < 0.01
+find job -maxdepth 1 -type f -name "[0-9]??" | sort |
+    parallel -j 16 '
+        cat {}.tsv |
+            tsv-filter --ff-str-ne 1:2 --le 3:0.01
+    ' \
+    > redundant.tsv
+# tsv-filter:
+# --ff-str-ne 1:2 : means strings in col1 and col2 not equal
+# --le 3:0.01 : means col3 smaller or equal 0.01
+# from the above, which means distance bewtween ref_seq and query_seq was smaller than 0.01
+
+head -n 5 redundant.tsv
+#NZ_KX777254.1   NC_003277.2     0.000167546     0       993/1000
+#NZ_KU761328.1   NZ_CP011983.1   0.00570819      0       797/1000
+#NZ_CP080361.1   NZ_CP011983.1   0.00550978      0       803/1000
+#NZ_CP031725.1   NZ_CP011983.1   0.00567497      0       798/1000
+#NZ_KX777254.1   NZ_CP039586.1   0.000215742     0       991/1000
+
+cat redundant.tsv | wc -l
+#950476
+```
+
+- Deal with those redundant plasmids
+
+```bash
+cat redundant.tsv |
+    perl -nla -F"\t" -MGraph::Undirected -e '
+        BEGIN {
+            our $g = Graph::Undirected->new;
+        }
+
+        $g->add_edge($F[0], $F[1]);
+
+        END {
+            for my $cc ( $g->connected_components ) {
+                print join qq{\t}, sort @{$cc};
+            }
+        }
+    ' \
+    > connected_components.tsv
+
+# Perl One-liner:
+# -n: assume while (<>) { ... } loop around program
+# -p: assume loop like -n but print line also, like sed
+# -a: autosplit mode with -n or -p (splits $_ into @F)
+# -F: split() pattern for -a switch (//'s are optional)
+# -l[octal]: enable line ending processing, specifies line terminator
+# -[mM][-]module: execute use/no module... before executing program
+# Graph::Undirected allows you to create undirected graphs.
 ```
