@@ -256,6 +256,12 @@ wc -l connected_components.tsv components.list
 #28079 total
 ```
 
+[Graph (discrete mathematics)](https://en.wikipedia.org/wiki/Graph_(discrete_mathematics)):
+
+Undirected graph:  if the vertices represent people at a party, and there is an edge between two people if they shake hands, then this graph is undirected because any person A can shake hands with a person B only if B also shakes hands with A.
+
+Directed graph: if any edge from a person A to a person B corresponds to A owes money to B, then this graph is directed, because owing money is not necessarily reciprocated.
+
 - Extract those redundant plasmids
 
 ```bash
@@ -307,4 +313,195 @@ find job -maxdepth 1 -type f -name "[0-9]??" | sort |
     > dist_full.tsv
 ```
 
-- Dist
+- Use dist to find all connected plasmids
+
+```bash
+# distance < 0.05
+cat dist_full.tsv |
+    tsv-filter --ff-str-ne 1:2 --le 3:0.05 \
+    > connected.tsv
+
+head -n 5 connected.tsv
+#NZ_CP035352.1   NG_048225.1     0.047688        0       225/1000
+#NZ_CP025252.1   NZ_CP011982.1   0.0415686       0       264/1000
+#NZ_LT985257.1   NZ_CP011982.1   0.0275126       0       390/1000
+#NZ_CP053253.1   NZ_CP014966.1   0.0471738       0       228/1000
+#NZ_CP018774.2   NZ_CP014966.1   0.0458408       0       236/1000
+
+cat connected.tsv | wc -l
+#179616
+```
+
+- Group according to dist
+
+```bash
+mkdir -p group
+
+cat connected.tsv |
+    perl -nla -F"\t" -MGraph::Undirected -MPath::Tiny -e '
+        BEGIN {
+            our $g = Graph::Undirected->new;
+        }
+
+        $g->add_edge($F[0], $F[1]);
+
+        END {
+            my @rare;
+            my $serial = 1;
+            my @ccs = $g->connected_components;
+            @ccs = map { $_->[0] }
+                sort { $b->[1] <=> $a->[1] }
+                map { [ $_, scalar( @{$_} ) ] } @ccs;
+            for my $cc ( @ccs ) {
+                my $count = scalar @{$cc};
+                if ($count < 50) {
+                    push @rare, @{$cc};
+                }
+                else {
+                    path(qq{group/$serial.lst})->spew(map {qq{$_\n}} @{$cc});
+                    $serial++;
+                }
+            }
+            path(qq{group/00.lst})->spew(map {qq{$_\n}} @rare);
+
+            path(qq{grouped.lst})->spew(map {qq{$_\n}} $g->vertices);
+        }
+    '
+```
+
+**Explain code**:
+
+>- Schwartzian transform:
+>
+>```perl
+>@sorted = map  { $_->[0] }
+>          sort { $a->[1] <=> $b->[1] or $a->[0] cmp $b->[0] } # Use numeric comparison, fall back to string sort on original
+>          map  { [$_, length($_)] }    # Calculate the length of the string
+>               @unsorted;
+>```
+>
+>- Path::tiny
+>
+>```perl
+>use Path::Tiny;
+> 
+># creating Path::Tiny objects
+> 
+>$dir = path("/tmp");
+>$foo = path("foo.txt");
+>
+>$subdir = $dir->child("foo");
+>$bar = $subdir->child("bar.txt");
+>
+># writing files
+> 
+>$bar->spew( @data );
+>$bar->spew_utf8( @data );
+>```
+>
+>So the code in:
+>
+>```perl
+>path(qq{group/00.lst})->spew(map {qq{$_\n}} @rare);
+>```
+>
+>means write @rare each element a line into ./group/00.lst file.
+
+- Get non-grouped plasmids
+
+```bash
+# get non-grouped
+# this will no be divided to subgroups
+faops some -i ../nr/refseq.nr.fa grouped.lst stdout |
+    faops size stdin |
+    cut -f 1 \
+    > group/lonely.lst
+
+wc -l group/*
+#  5311 group/00.lst
+#  4208 group/1.lst
+#   695 group/2.lst
+#   189 group/3.lst
+#    97 group/4.lst
+#    97 group/5.lst
+#    86 group/6.lst
+#    64 group/7.lst
+#    64 group/8.lst
+#    54 group/9.lst
+#  9583 group/lonely.lst
+# 20448 total
+```
+
+- Analyze each group by R
+
+```bash
+find group -maxdepth 1 -type f -name "[0-9]*.lst" | sort |
+    parallel -j 4 --line-buffer '
+        echo >&2 "==> {}"
+
+        faops some ../nr/refseq.nr.fa {} stdout |
+            mash sketch -k 21 -s 1000 -i -p 6 - -o {}.msh
+
+        mash dist -p 6 {}.msh {}.msh > {}.tsv
+    '
+
+find group -maxdepth 1 -type f -name "[0-9]*.lst.tsv" | sort |
+    parallel -j 4 --line-buffer '
+        echo >&2 "==> {}"
+
+        cat {} |
+            tsv-select -f 1-3 |
+            Rscript -e '\''
+                library(readr);
+                library(tidyr);
+                library(ape);
+                pair_dist <- read_tsv(file("stdin"), col_names=F);
+                tmp <- pair_dist %>%
+                    pivot_wider( names_from = X2, values_from = X3, values_fill = list(X3 = 1.0) )
+                tmp <- as.matrix(tmp)
+                mat <- tmp[,-1]
+                rownames(mat) <- tmp[,1]
+
+                dist_mat <- as.dist(mat)
+                clusters <- hclust(dist_mat, method = "ward.D2")
+                tree <- as.phylo(clusters)
+                write.tree(phy=tree, file="{.}.tree.nwk")
+
+                group <- cutree(clusters, h=0.2) # k=3
+                groups <- as.data.frame(group)
+                groups$ids <- rownames(groups)
+                rownames(groups) <- NULL
+                groups <- groups[order(groups$group), ]
+                write_tsv(groups, "{.}.groups.tsv")
+            '\''
+    '
+```
+
+**Explain code**:
+>
+>`read_tsv` will give the below info:
+>
+>```txt
+>-- Column specification >-----------------------------------------------
+>Delimiter: "\t"
+>chr (2): X1, X2
+>dbl (1): X3
+>```
+>
+>`ape` means Analysis of Phylogenetics and Evolution R packages.
+>
+>`pivot_wider()` "widens" data, increasing the number of columns and decreasing the number of rows. This step will change the `pair_dist` to a matrix - each col is from `pair_dist$X2` and values are from `pair_dist$X3`.
+>
+>The main goal is to transform all pair values into a matrix.
+>
+>`tmp[,-1]` means accessing tmp all cols without the 1st name col.
+>
+>`tmp[,1]` means accessing tmp 1st col as rownames.
+>
+>`ward.D2` - Like most other clustering methods, Ward’s method is computationally intensive. However, Ward’s has significantly fewer computations than other methods.
+>
+>`hclust` - [what is hierarchical clustering](https://www.displayr.com/what-is-hierarchical-clustering/)
+>
+>`cutree` - Cut a Tree into Groups of Data. Cuts a tree, *e.g.*, as resulting from hclust, into several groups either by specifying the desired number(s) of groups or the cut height(s).
+>
+>After all those steps in R, we converted pair dist tsv files into dist matrices, which were used for each group building a phylogenic tree and were cutted into groups based on the tree.
