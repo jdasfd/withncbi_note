@@ -369,43 +369,43 @@ cat connected.tsv |
     '
 ```
 
-**Explain code**:
-
->- Schwartzian transform:
+> **Explain code**:
 >
->```perl
->@sorted = map  { $_->[0] }
+> - Schwartzian transform:
+>
+> ```perl
+> @sorted = map  { $_->[0] }
 >          sort { $a->[1] <=> $b->[1] or $a->[0] cmp $b->[0] } # Use numeric comparison, fall back to string sort on original
 >          map  { [$_, length($_)] }    # Calculate the length of the string
 >               @unsorted;
->```
+> ```
 >
->- Path::tiny
+> - Path::tiny
 >
->```perl
->use Path::Tiny;
+> ```perl
+> use Path::Tiny;
 > 
-># creating Path::Tiny objects
+> # creating Path::Tiny objects
 > 
->$dir = path("/tmp");
->$foo = path("foo.txt");
+> $dir = path("/tmp");
+> $foo = path("foo.txt");
 >
->$subdir = $dir->child("foo");
->$bar = $subdir->child("bar.txt");
+> $subdir = $dir->child("foo");
+> $bar = $subdir->child("bar.txt");
 >
-># writing files
+> # writing files
 > 
->$bar->spew( @data );
->$bar->spew_utf8( @data );
->```
+> $bar->spew( @data );
+> $bar->spew_utf8( @data );
+> ```
 >
->So the code in:
+> So the code in:
 >
->```perl
->path(qq{group/00.lst})->spew(map {qq{$_\n}} @rare);
->```
+> ```perl
+> path(qq{group/00.lst})->spew(map {qq{$_\n}} @rare);
+> ```
 >
->means write @rare each element a line into the ./group/00.lst file.
+> means write @rare each element a line into the ./group/00.lst file.
 
 - Get non-grouped plasmids
 
@@ -477,34 +477,34 @@ find group -maxdepth 1 -type f -name "[0-9]*.lst.tsv" | sort |
     '
 ```
 
-**Explain code**:
+> **Explain code**:
 >
->`read_tsv` will give the below info:
+> `read_tsv` will give the below info:
 >
->```txt
->-- Column specification >-----------------------------------------------
->Delimiter: "\t"
->chr (2): X1, X2
->dbl (1): X3
->```
+> ```txt
+> -- Column specification >-----------------------------------------------
+> Delimiter: "\t"
+> chr (2): X1, X2
+> dbl (1): X3
+> ```
 >
->`ape` means Analysis of Phylogenetics and Evolution R packages.
+> `ape` means Analysis of Phylogenetics and Evolution R packages.
 >
->`pivot_wider()` "widens" data, increasing the number of columns and decreasing the number of rows. This step will change the `pair_dist` to a matrix - each col is from `pair_dist$X2` and values are from `pair_dist$X3`.
+> `pivot_wider()` "widens" data, increasing the number of columns and decreasing the number of rows. This step will change the `pair_dist` to a matrix - each col is from `pair_dist$X2` and values are from `pair_dist$X3`.
 >
->The main goal is to transform all pair values into a matrix.
+> The main goal is to transform all pair values into a matrix.
 >
->`tmp[,-1]` means accessing tmp all cols without the 1st name col.
+> `tmp[,-1]` means accessing tmp all cols without the 1st name col.
 >
->`tmp[,1]` means accessing tmp 1st col as rownames.
+> `tmp[,1]` means accessing tmp 1st col as rownames.
 >
->`ward.D2` - Like most other clustering methods, Ward’s method is computationally intensive. However, Ward’s has significantly fewer computations than other methods.
+> `ward.D2` - Like most other clustering methods, Ward’s method is computationally intensive. However, Ward’s has significantly fewer computations than other methods.
 >
->`hclust` - [what is hierarchical clustering](https://www.displayr.com/what-is-hierarchical-clustering/)
+> `hclust` - [what is hierarchical clustering](https://www.displayr.com/what-is-hierarchical-clustering/)
 >
->`cutree` - Cut a Tree into Groups of Data. Cuts a tree, *e.g.*, as resulting from hclust, into several groups either by specifying the desired number(s) of groups or the cut height(s).
+> `cutree` - Cut a Tree into Groups of Data. Cuts a tree, *e.g.*, as resulting from hclust, into several groups either by specifying the desired number(s) of groups or the cut height(s).
 >
->After all those steps in R, we converted pair dist tsv files into dist matrices, which were used for each group building a phylogenic tree and were cutted into groups based on the tree.
+> After all those steps in R, we converted pair dist tsv files into dist matrices, which were used for each group building a phylogenic tree and were cutted into groups based on the tree.
 
 - Analyze subgroup
 
@@ -552,73 +552,75 @@ cat ../nr/connected_components.tsv |
 # "[:blank:]": all horizontal whitespace
 ```
 
->**Explanation**:
+> **Explanation**:
 >
->`parallel {}`:
+> `parallel {}`:
 >
->`{}` means input line. *E.g.*, `group/1.lst.groups.tsv` was passed to parallel from stdout, so the `cat {}` actually meant `cat group/1.lst.groups.tsv`.
+> `{}` means input line. *E.g.*, `group/1.lst.groups.tsv` was passed to parallel from stdout, so the `cat {}` actually meant `cat group/1.lst.groups.tsv`.
 >
->`{.}` means input line without extension. So `{.}` actually meant `group/1.lst.groups` (without `.tsv`).
+> `{.}` means input line without extension. So `{.}` actually meant `group/1.lst.groups` (without `.tsv`).
 >
->`{/}` means basename of input line removed. So `{/}` actually meant `1.lst.groups.tsv` (without `group/`).
+> `{/}` means basename of input line removed. So `{/}` actually meant `1.lst.groups.tsv` (without `group/`).
 >
->`{//}` means dirname. So `{//}` actually meant `group` (without `/1.lst.groups.tsv`).
+> `{//}` means dirname. So `{//}` actually meant `group` (without `/1.lst.groups.tsv`).
 >
->`{/.}` means basename of input line without extension. So `{/.}` actually meant `1.lst.groups`.
+> `{/.}` means basename of input line without extension. So `{/.}` actually meant `1.lst.groups`.
 >
->`parallel {1}`: will use an example for explaining.
+> `{#}` means sequence number of the job to run. So `{#}` actually meant `1`.
 >
->```bash
->parallel echo {1} {2} {3} ::: 6 7 ::: 4 5 ::: 1 2 3 | head -n 5
->#6 4 1
->#6 4 2
->#6 4 3
->#6 5 1
->#6 5 2
-># multiple input will give out an combination input like (6,4,1), (6,4,2), (6,4,3) ... (7,5,2), (7,5,3)
-># then {1} means col1, {2} means col2
+> `parallel {1}`: will use an example for explaining.
 >
->parallel echo {2} ::: 6 7 ::: 4 5 ::: 1 2 3 | head -n 5
->#4
->#4
->#4
->#5
->#5
-># only output col2
->```
+> ```bash
+> parallel echo {1} {2} {3} ::: 6 7 ::: 4 5 ::: 1 2 3 | head -n 5
+> #6 4 1
+> #6 4 2
+> #6 4 3
+> #6 5 1
+> #6 5 2
+> # multiple input will give out an combination input like (6,4,1), (6,4,2), (6,4,3) ... (7,5,2), (7,5,3)
+> # then {1} means col1, {2} means col2
 >
->`--colseq/-C regexp`: column separator
+> parallel echo {2} ::: 6 7 ::: 4 5 ::: 1 2 3 | head -n 5
+> #4
+> #4
+> #4
+> #5
+> #5
+> # only output col2
+> ```
 >
->```bash
->parallel echo {4} {3} {2} {1} \
->::: A-B C-D ::: e-f g-h
->#e-f A-B
->#g-h A-B
->#e-f C-D
->#g-h C-D
-># without col4 and col3, so the result was the same to the below one
+> `--colseq/-C regexp`: column separator
 >
->parallel echo {2} {1} ::: A-B C-D ::: e-f g-h
->#e-f A-B
->#g-h A-B
->#e-f C-D
->#g-h C-D
+> ```bash
+> parallel echo {4} {3} {2} {1} \
+> ::: A-B C-D ::: e-f g-h
+> #e-f A-B
+> #g-h A-B
+> #e-f C-D
+> #g-h C-D
+> # without col4 and col3, so the result was the same to the below one
 >
->parallel --colsep '-' echo {4} {3} {2} {1} \
->::: A-B C-D ::: e-f g-h
->#f e B A
->#h g B A
->#f e D C
->#h g D C
-># A B was seperated by -, so the table would be (A B e f) for the row1, (A B g h) for the row2
+> parallel echo {2} {1} ::: A-B C-D ::: e-f g-h
+> #e-f A-B
+> #g-h A-B
+> #e-f C-D
+> #g-h C-D
 >
->parallel --colsep '-' echo {2} {1} \
->::: A-B C-D ::: e-f g-h
->#B A
->#B A
->#D C
->#D C
->```
+> parallel --colsep '-' echo {4} {3} {2} {1} \
+> ::: A-B C-D ::: e-f g-h
+> #f e B A
+> #h g B A
+> #f e D C
+> #h g D C
+> # A B was seperated by -, so the table would be (A B e f) for the row1, (A B g h) for the row2
+>
+> parallel --colsep '-' echo {2} {1} \
+> ::: A-B C-D ::: e-f g-h
+> #B A
+> #B A
+> #D C
+> #D C
+> ```
 
 ```bash
 # remove duplicates
@@ -649,4 +651,91 @@ wc -l next.tsv
 #104
 
 # rm -rf job
+```
+
+## Plasmid: prepare
+
+- Split sequences
+
+```bash
+mkdir /mnt/d/data/plasmid/GENOMES
+mkdir /mnt/d/data/plasmid/taxon
+
+cd /mnt/d/data/plasmid/grouping
+
+echo -e "#Serial\tGroup\tCount\tTarget" > ../taxon/group_target.tsv
+
+cat next.tsv |
+    cut -d" " -f 2 |
+    parallel -j 4 -k --line-buffer '
+        echo >&2 "==> {}"
+
+        GROUP_NAME={/.}
+        TARGET_NAME=$(head -n 1 {} | perl -pe "s/\.\d+//g")
+
+        SERIAL={#}
+        COUNT=$(cat {} | wc -l)
+
+        echo -e "${SERIAL}\t${GROUP_NAME}\t${COUNT}\t${TARGET_NAME}" >> ../taxon/group_target.tsv
+
+        faops order ../nr/refseq.fa {} stdout |
+            faops filter -s stdin stdout \
+            > ../GENOMES/${GROUP_NAME}.fa
+    '
+
+cat next.tsv |
+    cut -d" " -f 2 |
+    parallel -j 4 -k --line-buffer '
+        echo >&2 "==> {}"
+        GROUP_NAME={/.}
+        faops size ../GENOMES/${GROUP_NAME}.fa > ../taxon/${GROUP_NAME}.sizes
+    '
+
+# split-name
+find ../GENOMES -maxdepth 1 -type f -name "*.fa" | sort |
+    parallel -j 4 '
+        faops split-name {} {.}
+    '
+# faops split-name: Split an fa file into several files/Using sequence names as file names
+
+# mv to dir of basename
+find ../GENOMES -maxdepth 2 -mindepth 2 -type f -name "*.fa" | sort |
+    parallel -j 4 '
+        mkdir -p {.}
+        mv {} {.}
+    '
+# because GENOMES had *.fa and dir with splited *.fa, so the arguments should be specified
+# that is -maxdepth 2 -mindepth 2: which means find the GENOMES subdir *.fa
+```
+
+> **Explanation**:
+>
+> With `--keep-order --line-buffer` will output lines from the first job continuously while it is running, then lines from the second job while that is running. It will buffer full lines, but jobs will not mix.
+>
+> `next.tsv` gives out the `strains_num subgroup/<file>.lst`, which means different subgroup and its strains. Using the `cut` to give the file name into parallel, each line a file. `TARGET_NAME` was the first strain in `*.lst`. In `*.lst` file, all strains accession were contained for `faops filter` extraction its genome info into dir GENOMES.
+>
+> The split-name step was using `faops split-name [options] <in.fa> <outdir>`. The genomes of each plasmid would be seperated into a dir named as `*.fa`/`*.lst` but without extensions.
+>
+> Then move the subdir `*.fa` into its own name dir.
+
+- `prepseq`
+
+```bash
+cd /mnt/d/data/plasmid/
+
+cat taxon/group_target.tsv |
+    sed -e '1d' |
+    parallel --colsep '\t' --no-run-if-empty --linebuffer -k -j 4 '
+        echo -e "==> Group: [{2}]\tTarget: [{4}]\n"
+
+        for name in $(cat taxon/{2}.sizes | cut -f 1); do
+            egaz prepseq GENOMES/{2}/${name}
+        done
+    '
+# e.g. a line in group_target.tsv | sed -e '1d' : "1       1_4     679     NC_002122"
+# so that the next command line could be translated in:
+# for name in $(cat taxon/1_4.sizes | cut -f 1); do
+#   egaz prepseq GENOMES/1_4/NC_002122 ...
+# done
+# because we put the strains.fa into its own name dir, and egaz prepseq will accept the dir
 ```
