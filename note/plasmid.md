@@ -238,7 +238,7 @@ cat redundant.tsv |
 # Graph::Undirected:
 # allows you to create undirected graphs
 # add_edge: Add the edge to the graph
-# connected_components: for an undirected graph, returns the vertices of the connected components of the graph as a list of anonymous arrays.
+# connected_components: for an undirected graph, returns the vertices of the connected components of the graph as a list of anonymous arrays
 
 cat connected_components.tsv | head -n 3
 #NZ_CP059740.1   NZ_CP059748.1   NZ_CP059794.1   NZ_CP059817.1   NZ_CP062266.1   NZ_CP072708.1
@@ -405,7 +405,7 @@ cat connected.tsv |
 >path(qq{group/00.lst})->spew(map {qq{$_\n}} @rare);
 >```
 >
->means write @rare each element a line into ./group/00.lst file.
+>means write @rare each element a line into the ./group/00.lst file.
 
 - Get non-grouped plasmids
 
@@ -505,3 +505,117 @@ find group -maxdepth 1 -type f -name "[0-9]*.lst.tsv" | sort |
 >`cutree` - Cut a Tree into Groups of Data. Cuts a tree, *e.g.*, as resulting from hclust, into several groups either by specifying the desired number(s) of groups or the cut height(s).
 >
 >After all those steps in R, we converted pair dist tsv files into dist matrices, which were used for each group building a phylogenic tree and were cutted into groups based on the tree.
+
+- Analyze subgroup
+
+```bash
+# subgroup
+mkdir -p subgroup
+cp group/lonely.lst subgroup/
+
+find group -name "*.groups.tsv" | sort |
+    parallel -j 1 -k '
+        cat {} | sed -e "1d" | xargs -I[] echo "{/.}_[]"
+    ' |
+    sed -e 's/.lst.groups_/_/' |
+    perl -na -F"\t" -MPath::Tiny -e '
+        path(qq{subgroup/$F[0].lst})->append(qq{$F[1]});
+    '
+# -k/--keep-order: keep sequence of output same as the order of input
+# {/.}: Basename of input line without extension
+
+# ignore small subgroups
+find subgroup -name "*.lst" | sort |
+    parallel -j 1 -k '
+        lines=$(cat {} | wc -l)
+
+        if (( lines < 5 )); then
+            echo -e "{}\t$lines"
+            cat {} >> subgroup/lonely.lst
+            rm {}
+        fi
+    '
+# (( ... )) this performs arithmetic
+# Like [[ ... ]], it returns an exit code of zero (true) if the result nonzero
+
+# append ccs
+# So this step is actually appending connected_components to a subgroup file
+cat ../nr/connected_components.tsv |
+    parallel -j 1 --colsep "\t" '
+        file=$(rg -F -l  "{1}" subgroup)
+        echo {} | tr "[:blank:]" "\n" >> ${file}
+    '
+# rg: recursively search the current directory for lines matching a pattern
+# -F/--fixed-strings: treat the pattern as a literal string instead of a regular expression
+# -l/--file-with-matches: print the paths with at least one match and suppress match contents
+# tr: copies the standard input to the standard output with substitution or deletion of selected characters
+# "[:blank:]": all horizontal whitespace
+```
+
+>**Explanation**:
+>
+>`parallel {}`:
+>
+>`{}` means input line. *E.g.*, `group/1.lst.groups.tsv` was passed to parallel from stdout, so the `cat {}` actually meant `cat group/1.lst.groups.tsv`.
+>
+>`{.}` means input line without extension. So `{.}` actually meant `group/1.lst.groups` (without `.tsv`).
+>
+>`{/}` means basename of input line removed. So `{/}` actually meant `1.lst.groups.tsv` (without `group/`).
+>
+>`{//}` means dirname. So `{//}` actually meant `group` (without `/1.lst.groups.tsv`).
+>
+>`{/.}` means basename of input line without extension. So `{/.}` actually meant `1.lst.groups`.
+>
+>`parallel {1}`: will use an example for explaining.
+>
+>```bash
+>parallel echo {1} {2} {3} ::: 6 7 ::: 4 5 ::: 1 2 3 | head -n 5
+>#6 4 1
+>#6 4 2
+>#6 4 3
+>#6 5 1
+>#6 5 2
+># multiple input will give out an combination input like (6,4,1), (6,4,2), (6,4,3) ... (7,5,2), (7,5,3)
+># then {1} means col1, {2} means col2
+>
+>parallel echo {2} ::: 6 7 ::: 4 5 ::: 1 2 3 | head -n 5
+>#4
+>#4
+>#4
+>#5
+>#5
+># only output col2
+>```
+>
+>`--colseq/-C regexp`: column separator
+>
+>```bash
+>parallel echo {4} {3} {2} {1} \
+>::: A-B C-D ::: e-f g-h
+>#e-f A-B
+>#g-h A-B
+>#e-f C-D
+>#g-h C-D
+># without col4 and col3, so the result was the same to the below one
+>
+>parallel echo {2} {1} ::: A-B C-D ::: e-f g-h
+>#e-f A-B
+>#g-h A-B
+>#e-f C-D
+>#g-h C-D
+>
+>parallel --colsep '-' echo {4} {3} {2} {1} \
+>::: A-B C-D ::: e-f g-h
+>#f e B A
+>#h g B A
+>#f e D C
+>#h g D C
+># A B was seperated by -, so the table would be (A B e f) for the row1, (A B g h) for the row2
+>
+>parallel --colsep '-' echo {2} {1} \
+>::: A-B C-D ::: e-f g-h
+>#B A
+>#B A
+>#D C
+>#D C
+>```
