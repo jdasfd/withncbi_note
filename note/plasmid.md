@@ -619,3 +619,34 @@ cat ../nr/connected_components.tsv |
 >#D C
 >#D C
 >```
+
+```bash
+# remove duplicates
+find subgroup -name "*.lst" | sort |
+    parallel -j 1 '
+        cat {} | sort | uniq > tmp.lst
+        mv tmp.lst {}
+    '
+
+wc -l subgroup/* |
+    sort -nr |
+    head -n 100
+
+wc -l subgroup/* |
+    perl -pe 's/^\s+//' |
+    tsv-filter -d" " --le 1:10 |
+    wc -l
+#251
+
+wc -l subgroup/* |
+    perl -pe 's/^\s+//' |
+    tsv-filter -d" " --ge 1:50 |
+    tsv-filter -d " " --regex '2:\d+' |
+    sort -nr \
+    > next.tsv
+
+wc -l next.tsv
+#104
+
+# rm -rf job
+```
