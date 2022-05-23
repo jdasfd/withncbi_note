@@ -798,5 +798,34 @@ rsync -avP /mnt/d/data/plasmid \
 After sending the dir to HPCC, the operating path will be the path on HPCC.
 
 ```bash
+cd jyq/data/plasmid/
 
+cat taxon/group_target.tsv |
+    sed -e '1d' | grep "^53" |
+    parallel --colsep '\t' --no-run-if-empty --linebuffer -k -j 1 '
+        echo -e "==> Group: [{2}]\tTarget: [{4}]\n"
+
+        egaz template \
+            GENOMES/{2}/{4} \
+            $(cat taxon/{2}.sizes | cut -f 1 | grep -v -x "{4}" | xargs -I[] echo "GENOMES/{2}/[]") \
+            --multi -o groups/{2}/ \
+            --order \
+            --parallel 24 -v
+
+#        bash groups/{2}/1_pair.sh
+#        bash groups/{2}/3_multi.sh
+
+        bsub -q mpi -n 24 -J "{2}-1_pair" "bash groups/{2}/1_pair.sh"
+        bsub -w "ended({2}-1_pair)" \
+            -q mpi -n 24 -J "{2}-3_multi" "bash groups/{2}/3_multi.sh"
+    '
+
+# clean
+find groups -mindepth 1 -maxdepth 3 -type d -name "*_raw" | parallel -r rm -fr
+find groups -mindepth 1 -maxdepth 3 -type d -name "*_fasta" | parallel -r rm -fr
+find . -mindepth 1 -maxdepth 3 -type f -name "output.*" | parallel -r rm
+
+echo \
+    $(find groups -mindepth 1 -maxdepth 1 -type d | wc -l) \
+    $(find groups -mindepth 1 -maxdepth 3 -type f -name "*.nwk.pdf" | wc -l)
 ```
