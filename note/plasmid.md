@@ -739,3 +739,64 @@ cat taxon/group_target.tsv |
 # done
 # because we put the strains.fa into its own name dir, and egaz prepseq will accept the dir
 ```
+
+- Check outliers of lengths
+
+```bash
+cd /mnt/d/data/plasmid/
+
+cat taxon/*.sizes | cut -f 1 | wc -l
+#14454
+
+cat taxon/*.sizes | cut -f 2 | paste -sd+ | bc
+#1584814437
+# paste:
+# -s (serial): reads all the lines from a single file and merges all these lines into a single line with each line separated by tab
+# -d (delimiter): tab as default, this can change any other character
+# bc: used for command line calculator
+
+cat taxon/group_target.tsv |
+    sed -e '1d' |
+    parallel --colsep '\t' --no-run-if-empty --linebuffer -k -j 4 '
+        echo -e "==> Group: [{2}]\tTarget: [{4}]"
+
+        median=$(cat taxon/{2}.sizes | datamash median 2)
+        mad=$(cat taxon/{2}.sizes | datamash mad 2)
+        lower_limit=$( bc <<< " (${median} - 2 * ${mad}) / 2" )
+
+#        echo $median $mad $lower_limit
+        lines=$(tsv-filter taxon/{2}.sizes --le "2:${lower_limit}" | wc -l)
+
+        if (( lines > 0 )); then
+            echo >&2 "    $lines lines to be filtered"
+            tsv-join taxon/{2}.sizes -e -f <(
+                    tsv-filter taxon/{2}.sizes --le "2:${lower_limit}"
+                ) \
+                > taxon/{2}.filtered.sizes
+            mv taxon/{2}.filtered.sizes taxon/{2}.sizes
+        fi
+    '
+# tsv-join -e: exclude matching records
+
+cat taxon/*.sizes | cut -f 1 | wc -l
+#14414
+
+cat taxon/*.sizes | cut -f 2 | paste -sd+ | bc
+#1583506331
+```
+
+- Rsync to HPCC
+
+```bash
+rsync -avP /mnt/d/data/plasmid \
+    wangq@202.119.37.251:jyq/data/
+# if /mnt/d/data/plasmid do not contained the '/' at the end, then it will transform a whole dir to hpcc\
+```
+
+## Plamid: run
+
+After sending the dir to HPCC, the operating path will be the path on HPCC.
+
+```bash
+
+```
