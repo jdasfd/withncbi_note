@@ -556,7 +556,7 @@ cat ../nr/connected_components.tsv |
 # -F/--fixed-strings: treat the pattern as a literal string instead of a regular expression
 # -l/--file-with-matches: print the paths with at least one match and suppress match contents
 # tr: copies the standard input to the standard output with substitution or deletion of selected characters
-# "[:blank:]": all horizontal whitespace
+# "[:blank:]": all horizontal whitespace - POSIX Basic Regular Expressions
 ```
 
 > **Explanation**:
