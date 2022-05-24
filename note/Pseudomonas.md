@@ -296,7 +296,6 @@ cat reference.tsv |
 
 # sed: add # to the start of first line
 # nwr append: append phylum and class to the tsv
-# if 
 ```
 
 RefSeq:
@@ -318,3 +317,41 @@ RefSeq:
 | 224308  | Bacillus subtilis subsp. subtilis str. 168                       | Firmicutes                           |
 | 169963  | Listeria monocytogenes EGD-e                                     | Firmicutes                           |
 | 83332   | Mycobacterium tuberculosis H37Rv                                 | Actinobacteria                       |
+
+## Download all assemblies
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+# Pseudomonas aeruginosa PAO1 is in the reference list
+cat reference.tsv |
+    tsv-select -H -f organism_name,species,genus,ftp_path,assembly_level \
+    > raw.tsv
+
+# Species with 2 or more genomes were retained
+SPECIES=$(
+    cat species.count.tsv |
+        tsv-filter -H --ge CHR:2 |
+        sed '1d' |
+        cut -f 1 |
+        tr "\n" "," |
+        sed 's/,$//'
+)
+
+# Pseudomonadales
+echo "
+    SELECT
+        organism_name || ' ' || assembly_accession AS name,
+        species, genus, ftp_path, assembly_level
+    FROM ar
+    WHERE 1=1
+        AND species_id IN ($SPECIES)
+        AND species NOT LIKE '% sp.%'
+        AND organism_name NOT LIKE '% sp.%'
+        AND assembly_level IN ('Complete Genome', 'Chromosome')
+    " |
+    sqlite3 -tabs ~/.nwr/ar_refseq.sqlite |
+    tsv-filter --invert --str-eq 2:"Pseudomonas aeruginosa" --str-eq 5:"Chromosome" |
+    tsv-filter --invert --str-eq 2:"Acinetobacter baumannii" --str-eq 5:"Chromosome" \
+    >> raw.tsv
+```
