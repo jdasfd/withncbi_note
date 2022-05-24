@@ -1,3 +1,5 @@
+# Species count in RefSeq by nwr
+
 | species_id | species | RS | CHR |
 | --- | --- | --- | --- |
 | 562 | Escherichia coli | 28596 | 2367 |
