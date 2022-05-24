@@ -4,6 +4,13 @@ My script was originated from my teacher [plasmid.md](https://github.com/wang-q/
 
 I rewrote some commands according to my own demanding and added some notes in correspoding locations.
 
+- [Learning and Classifying Plasmids](#learning-and-classifying-plasmids)
+  - [NCBI RefSeq](#ncbi-refseq)
+  - [MinHash to get non-redundant plasmids](#minhash-to-get-non-redundant-plasmids)
+  - [Grouping by MinHash](#grouping-by-minhash)
+  - [Plasmid: prepare](#plasmid-prepare)
+  - [Plamid: run](#plamid-run)
+
 ## NCBI RefSeq
 
 ```bash
