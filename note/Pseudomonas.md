@@ -897,3 +897,41 @@ done |
 
 rm *.tmp
 ```
+
+## NCBI taxonomy
+
+Done by `bp_taxonomy2tree.pl` from BioPerl
+
+```txt
+NAME
+    bp_taxonomy2tree - Building a taxonomic tree based on the full lineages
+    of a set of species names
+
+DESCRIPTION
+    This scripts looks up the provided species names in the NCBI Taxonomy
+    database, retrieves their full lineage and puts them in a Newick
+    taxonomic tree displayed on screen.
+
+      bp_taxonomy2tree.pl -s Orangutan -s Gorilla -s Chimpanzee -s Human
+      bp_taxonomy2tree.pl -s Orangutan -s Gorilla -s Chimpanzee -s "Homo Sapiens"
+```
+
+```bash
+mkdir -p /mnt/e/data/Pseudomonas/tree
+cd /mnt/e/data/Pseudomonas/tree
+
+bp_taxonomy2tree.pl -e \
+    $(
+        cat ../genus.lst |
+            tr " " "_" |
+            parallel echo '-s {}'
+    ) \
+    > ncbi.nwk
+
+nw_display -s -b 'visibility:hidden' -w 600 -v 30 ncbi.nwk |
+    rsvg-convert -o Pseudomonas.ncbi.png
+```
+
+## Raw phylogenetic tree by MinHash
+
+MinHash was used and introduced in [plasmid.md](plasmid.md).
