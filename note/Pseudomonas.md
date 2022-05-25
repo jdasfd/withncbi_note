@@ -757,3 +757,143 @@ cat order.lst |
     (echo -e '#tax_id\torder\t#species\t#strains' && cat) |
     mlr --itsv --omd cat
 ```
+
+| #tax_id | order                 | #species | #strains |
+| ------- | --------------------- | -------- | -------- |
+| 1692040 | Acidiferrobacterales  | 3        | 3        |
+| 135624  | Aeromonadales         | 18       | 18       |
+| 135622  | Alteromonadales       | 52       | 118      |
+| 1385    | Bacillales            | 3        | 3        |
+| 213849  | Campylobacterales     | 1        | 1        |
+| 135615  | Cardiobacteriales     | 2        | 2        |
+| 204458  | Caulobacterales       | 1        | 1        |
+| 1706369 | Cellvibrionales       | 2        | 4        |
+| 51291   | Chlamydiales          | 1        | 1        |
+| 135613  | Chromatiales          | 32       | 32       |
+| 85007   | Corynebacteriales     | 1        | 1        |
+| 91347   | Enterobacterales      | 179      | 179      |
+| 1934945 | Immundisolibacterales | 1        | 1        |
+| 118969  | Legionellales         | 18       | 18       |
+| 135618  | Methylococcales       | 14       | 14       |
+| 2887326 | Moraxellales          | 50       | 523      |
+| 1775403 | Nevskiales            | 1        | 1        |
+| 135619  | Oceanospirillales     | 9        | 18       |
+| 1240482 | Orbales               | 3        | 3        |
+| 135625  | Pasteurellales        | 34       | 34       |
+| 72274   | Pseudomonadales       | 183      | 846      |
+| 72273   | Thiotrichales         | 32       | 32       |
+| 135623  | Vibrionales           | 46       | 46       |
+| 135614  | Xanthomonadales       | 53       | 53       |
+
+- Genus
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+# Group by order
+cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
+    sed -e '1d' |
+    tsv-select -d, -f 3 |
+    tsv-uniq |
+    nwr append stdin -r genus |
+    tsv-select -f 2 |
+    tsv-uniq \
+    > genus.lst
+
+cat genus.lst |
+    parallel --no-run-if-empty --linebuffer -k -j 4 '
+        n_species=$(cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
+            sed "1d" |
+            tsv-select -d, -f 3 |
+            nwr append stdin -r genus -r species |
+            grep {} |
+            tsv-select -f 1,3 |
+            tsv-uniq |
+            wc -l)
+
+        n_strains=$(cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
+            sed "1d" |
+            tsv-select -d, -f 3 |
+            nwr append stdin -r genus |
+            grep {} |
+            wc -l)
+
+        printf "%s\t%d\t%d\n" {} ${n_species} ${n_strains}
+    ' |
+    nwr append stdin --id |
+    tsv-select -f 5,4,2,3 |
+    tsv-sort -k2,2 |
+    tsv-filter --ge 4:10 |
+    (echo -e '#tax_id\tgenus\t#species\t#strains' && cat) |
+    mlr --itsv --omd cat
+```
+
+| #tax_id | genus             | #species | #strains |
+| ------- | ----------------- | -------- | -------- |
+| 469     | Acinetobacter     | 43       | 486      |
+| 642     | Aeromonas         | 12       | 12       |
+| 226     | Alteromonas       | 16       | 31       |
+| 544     | Citrobacter       | 14       | 14       |
+| 547     | Enterobacter      | 10       | 10       |
+| 262     | Francisella       | 11       | 11       |
+| 2745    | Halomonas         | 5        | 13       |
+| 445     | Legionella        | 14       | 14       |
+| 68      | Lysobacter        | 12       | 12       |
+| 475     | Moraxella         | 5        | 35       |
+| 122277  | Pectobacterium    | 12       | 12       |
+| 53246   | Pseudoalteromonas | 18       | 33       |
+| 286     | Pseudomonas       | 172      | 827      |
+| 613     | Serratia          | 14       | 14       |
+| 22      | Shewanella        | 16       | 52       |
+| 662     | Vibrio            | 38       | 38       |
+| 338     | Xanthomonas       | 18       | 18       |
+| 629     | Yersinia          | 12       | 12       |
+
+- strains
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+# list strains
+mkdir -p taxon
+
+rm taxon/* strains.lst *.tmp
+cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
+    sed -e '1d' |
+    tr "," "\t" |
+    tsv-select -f 1,2,3 |
+    nwr append stdin -c 3 -r species -r genus -r family -r order |
+    parallel --col-sep "\t" --no-run-if-empty --linebuffer -k -j 4 '
+        echo {1} >> strains.lst
+
+        echo {4} >> species.tmp
+        echo {5} >> genus.tmp
+        echo {6} >> family.tmp
+
+        echo {7} >> order.tmp
+        echo {1} >> taxon/{7}
+
+        printf "%s\t%s\t%d\t%s\t%s\t%s\t%s\n" {1} {2} {3} {4} {5} {6} {7}
+    ' \
+    > strains.taxon.tsv
+
+cat species.tmp | tsv-uniq > species.lst
+cat genus.tmp | tsv-uniq > genus.lst
+cat family.tmp | tsv-uniq > family.lst
+cat order.tmp | tsv-uniq > order.lst
+
+# Omit strains without protein annotations
+for STRAIN in $(cat strains.lst); do
+    if ! compgen -G "ASSEMBLY/${STRAIN}/*_protein.faa.gz" > /dev/null; then
+        echo ${STRAIN}
+    fi
+    if ! compgen -G "ASSEMBLY/${STRAIN}/*_cds_from_genomic.fna.gz" > /dev/null; then
+        echo ${STRAIN}
+    fi
+done |
+    tsv-uniq \
+    > omit.lst
+# All OK
+
+rm *.tmp
+```
