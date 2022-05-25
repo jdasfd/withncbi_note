@@ -2,6 +2,14 @@
 
 This markdown is to record my study of teacher's [Pseudomonas.md](https://github.com/wang-q/withncbi/blob/master/pop/Pseudomonas.md).
 
+Before getting start, the Taxonomy is very important for extracting those strains from all ranks.
+
+The basic taxonomy ranks are here:
+
+| Domain | Kingdom | Phylum | Class | Order | Family | Genus | Species |
+| ------ | ------- | ------ | ----- | ----- | ------ | ----- | ------- |
+| 域     | 界      | 门     | 纲    | 目    | 科     | 属    | 种      |
+
 ## Strain info
 
 - Pseudomonas
@@ -320,6 +328,8 @@ RefSeq:
 
 ## Download all assemblies
 
+- Get all assemblies info
+
 ```bash
 cd /mnt/e/data/Pseudomonas
 
@@ -327,6 +337,8 @@ cd /mnt/e/data/Pseudomonas
 cat reference.tsv |
     tsv-select -H -f organism_name,species,genus,ftp_path,assembly_level \
     > raw.tsv
+cat raw.tsv | wc -l
+#16
 
 # Species with 2 or more genomes were retained
 SPECIES=$(
@@ -354,4 +366,185 @@ echo "
     tsv-filter --invert --str-eq 2:"Pseudomonas aeruginosa" --str-eq 5:"Chromosome" |
     tsv-filter --invert --str-eq 2:"Acinetobacter baumannii" --str-eq 5:"Chromosome" \
     >> raw.tsv
+
+cat raw.tsv | wc -l
+#1666
+
+# The SQLite || operator allows you to concatenate 2 or more strings together.
+# This step finally got all strains' assemblies from species.count.tsv
+
+# Also includes representative strains of Gammaproteobacteria.
+# families not in our orders
+FAMILY=$(
+    nwr member Gammaproteobacteria -r family |
+        grep -v -i "Candidatus " |
+        grep -v -i "candidate " |
+        sed '1d' |
+        cut -f 1 |
+        nwr append stdin -r order |
+        tsv-filter --str-ne 2:"Cellvibrionales" --str-ne 2:"Oceanospirillales" --str-ne 2:"Alteromonadales" |
+        tsv-filter --str-ne 2:"Moraxellales" --str-ne 2:"Kangiellales" --str-ne 2:"Pseudomonadales" |
+        tsv-filter --str-ne 2:"NA" |
+        cut -f 1 |
+        tr "\n" "," |
+        sed 's/,$//'
+)
+
+echo "
+    SELECT
+        organism_name || ' ' || assembly_accession AS name,
+        species, genus, ftp_path, assembly_level
+    FROM ar
+    WHERE 1=1
+        AND family_id IN ($FAMILY)
+        AND species NOT LIKE '% sp.%'
+        AND organism_name NOT LIKE '% sp.%'
+        AND refseq_category IN ('representative genome')
+        AND assembly_level IN ('Complete Genome', 'Chromosome')
+    " |
+    sqlite3 -tabs ~/.nwr/ar_refseq.sqlite |
+    grep -v -i "symbiont " |
+    tsv-filter --str-not-in-fld 1:"[" \
+    >> raw.tsv
+
+cat raw.tsv | wc -l
+#2095
+
+# Create abbr.
+cat raw.tsv |
+    grep -v '^#' |
+    tsv-uniq |
+    perl ~/Scripts/withncbi/taxon/abbr_name.pl -c "1,2,3" -s '\t' -m 3 --shortsub |
+    (echo -e '#name\tftp_path\torganism\tassembly_level' && cat ) |
+    perl -nl -a -F"," -e '
+        BEGIN{my %seen};
+        /^#/ and print and next;
+        /^organism_name/i and next;
+        $seen{$F[3]}++; # ftp_path
+        $seen{$F[3]} > 1 and next;
+        $seen{$F[5]}++; # abbr_name
+        $seen{$F[5]} > 1 and next;
+        printf qq{%s\t%s\t%s\t%s\n}, $F[5], $F[3], $F[1], $F[4];
+        ' |
+    keep-header -- sort -k3,3 -k1,1 \
+    > Pseudomonas.assembly.tsv
+# A double dash (--) delimits the command, similar to how the pipe
+# operator (|) delimits commands. Examples:
+# keep-header file1.txt -- sort
+
+# find potential duplicate strains or assemblies
+cat Pseudomonas.assembly.tsv |
+    tsv-uniq -f 1 --repeated
+# --repeated: output only lines that are repeated (based on the key)
+
+# Edit .tsv, remove unnecessary strains, check strain names and comment out poor assemblies.
+# vim Pseudomonas.assembly.tsv
+# cp Pseudomonas.assembly.tsv ~/Scripts/withncbi/pop
+
+# Comment out unneeded strains
+
+# Cleaning
+rm raw*.*sv
 ```
+
+> **Explanation**:
+>
+> [SQLite: || Operator](https://www.techonthenet.com/sqlite/functions/concatenate.php)
+>
+> `||` operator allows you to concatenate 2 or more strings together.
+>
+> ```txt
+> SELECT 'Jane' || ' ' || 'Smith';
+> Result: 'Jane Smith'
+> ```
+>
+> The `||` operator will concatenate string values that are enclosed in single quotes.
+>
+> `LIKE '% sp.%'` clause can find which tracks composed by `sp.`
+>
+> `%` here represents other characters:
+>
+> `'% sp.'` will match those tracks ended with `sp.`, such as `abcsp.`
+>
+> `'sp.%'` will match those tracks started with `sp.`, such as `sp.abc`
+>
+> `'% sp.%'` will match those tracks contained `sp.`
+>
+> ```bash
+> perl ~/Scripts/withncbi/taxon/abbr_name.pl
+> Usage:
+>       cat <file> | perl abbr_name.pl [options]
+>         Options:
+>           --help              brief help message
+>           --column    -c  STR Columns of strain, species, genus, default is 1,2,3.
+>                               If there's no strain, use 1,1,2.
+>                               Don't need the strain part, use 2,2,3
+>                               When there's only strain, use 1,1,1
+>           --separator -s  STR separator of the line, default is "\s+"
+>           --min INT           mininal length for abbreviation of species
+>           --tight             no underscore between Genus and species
+>           --shortsub          clean subspecies parts
+> ```
+
+- Download them using scripts
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+perl ~/Scripts/withncbi/taxon/assembly_prep.pl \
+    -f Pseudomonas.assembly.tsv \
+    -o ASSEMBLY
+
+# Remove dirs not in the list
+find ASSEMBLY -maxdepth 1 -mindepth 1 -type d |
+    tr "/" "\t" |
+    cut -f 2 |
+    tsv-join --exclude -k 1 -f ASSEMBLY/rsync.tsv -d 1 |
+    parallel --no-run-if-empty --linebuffer -k -j 1 '
+        echo Remove {}
+        rm -fr ASSEMBLY/{}
+    '
+
+# Run
+proxychains4 bash ASSEMBLY/Pseudomonas.assembly.rsync.sh
+
+bash ASSEMBLY/Pseudomonas.assembly.collect.sh
+
+# md5
+cat ASSEMBLY/rsync.tsv |
+    tsv-select -f 1 |
+    parallel -j 4 --keep-order '
+        echo "==> {}"
+        cd ASSEMBLY/{}
+        md5sum --check md5checksums.txt
+    ' |
+    grep -v ": OK"
+```
+
+> **Explanation**:
+>
+> ```bash
+> perl ~/Scripts/withncbi/taxon/assembly_prep.pl --help
+> Usage:
+>       perl assembly_prep.pl [options]
+>         Options:
+>           --help, -?              brief help message
+>
+>           --file, -f      STR     tab seperated file containing wgs prefix and name
+>           --outdir, -o    STR     output dir
+>           --csvonly               only generate the csv file
+>
+>       perl assembly_prep.pl -f trichoderma.assembly.tsv -o ASSEMBLY
+>
+>       #name   ftp_path    organism    assembly_level
+>
+>       Three files will be generated:
+>
+>           trichoderma.assembly.rsync.sh
+>           rsync.tsv
+>           trichoderma.assembly.collect.sh
+>
+>       The latter one will create:
+>
+>           trichoderma.assembly.collect.csv
+> ```
