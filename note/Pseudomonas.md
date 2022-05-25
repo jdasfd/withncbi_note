@@ -652,3 +652,108 @@ find biosample -name "SAM*.txt" |
 > @lines = $file->lines;
 > @contents = path("/tmp/foo.txt")->lines( { chomp => 1, count => 4 } );
 > ```
+
+## Count and group strains
+
+- Check N50 of assemblies
+
+- Some strains were anomalously labeled and identified by the `mash` tree.
+  - Pseudom_flu_GCF_900636635_1
+  - Pseudom_chl_GCF_001023535_1
+  - Pseudom_syr_GCF_004006335_1
+  - Pseudom_puti_GCF_003228315_1 and Pseudom_puti_GCF_020172705_1
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+for dir in $(find ASSEMBLY -maxdepth 1 -mindepth 1 -type d | sort); do
+    1>&2 echo "==> ${dir}"
+    name=$(basename ${dir})
+
+    find ${dir} -type f -name "*_genomic.fna.gz" |
+        grep -v "_from_" | # exclude CDS and rna
+        xargs cat |
+        faops n50 -C -S stdin |
+        (echo -e "name\t${name}" && cat) |
+        datamash transpose
+done |
+    tsv-uniq | # remove all header, keep the first line
+    tee ASSEMBLY/n50.tsv
+# n50.tsv after transpose will give out every name N50 info
+# file header: name\tN50\tS\tC
+# -S: compute sum of size of all entries
+# -C: count entries
+
+cat ASSEMBLY/n50.tsv |
+    tsv-filter \
+        -H --or \
+        --le 4:100 \
+        --ge 2:100000 |
+    tsv-filter -H --ge 3:1000000 |
+    tr "\t" "," \
+    > ASSEMBLY/n50.pass.csv
+# evaluate tests as an OR rather than an AND clause (default)
+
+wc -l ASSEMBLY/n50*
+#1958 ASSEMBLY/n50.pass.csv
+#1959 ASSEMBLY/n50.tsv
+#3917 total
+
+tsv-join \
+    ASSEMBLY/Pseudomonas.assembly.collect.csv \
+    --delimiter "," -H --key-fields 1 \
+    --filter-file ASSEMBLY/n50.pass.csv |
+    tsv-filter --delimiter "," -H --str-not-in-fld 1:GCF_900636635 |
+    tsv-filter --delimiter "," -H --str-not-in-fld 1:GCF_001023535 |
+    tsv-filter --delimiter "," -H --str-not-in-fld 1:GCF_004006335 |
+    tsv-filter --delimiter "," -H --str-not-in-fld 1:GCF_003228315 |
+    tsv-filter --delimiter "," -H --str-not-in-fld 1:GCF_020172705 \
+    > ASSEMBLY/Pseudomonas.assembly.pass.csv
+
+wc -l ASSEMBLY/Pseudomonas.assembly*csv
+#1959 ASSEMBLY/Pseudomonas.assembly.collect.csv
+#1953 ASSEMBLY/Pseudomonas.assembly.pass.csv
+#3912 total
+```
+
+- Order
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+# Group by order
+cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
+    sed -e '1d' |
+    tsv-select -d, -f 3 |
+    tsv-uniq |
+    nwr append stdin -r order |
+    tsv-select -f 2 |
+    tsv-uniq \
+    > order.lst
+
+cat order.lst |
+    parallel --no-run-if-empty --linebuffer -k -j 4 '
+        n_species=$(cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
+            sed "1d" |
+            tsv-select -d, -f 3 |
+            nwr append stdin -r order -r species |
+            grep {} |
+            tsv-select -f 1,3 |
+            tsv-uniq |
+            wc -l)
+
+        n_strains=$(cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
+            sed "1d" |
+            tsv-select -d, -f 3 |
+            nwr append stdin -r order |
+            grep {} |
+            wc -l)
+
+        printf "%s\t%d\t%d\n" {} ${n_species} ${n_strains}
+    ' |
+    nwr append stdin --id |
+    tsv-select -f 5,4,2,3 |
+    tsv-sort -k2,2 |
+    (echo -e '#tax_id\torder\t#species\t#strains' && cat) |
+    mlr --itsv --omd cat
+```
