@@ -7,8 +7,8 @@ Before getting start, the Taxonomy is very important for extracting those strain
 The basic taxonomy ranks are here:
 
 | Domain | Kingdom | Phylum | Class | Order | Family | Genus | Species |
-| ------ | ------- | ------ | ----- | ----- | ------ | ----- | ------- |
-| 域     | 界      | 门     | 纲    | 目    | 科     | 属    | 种      |
+|--------|---------|--------|-------|-------|--------|-------|---------|
+| 域      | 界       | 门      | 纲     | 目     | 科      | 属     | 种       |
 
 ## Strain info
 
@@ -45,7 +45,7 @@ nwr member Pseudomonas Acinetobacter -r "species group" -r "species subgroup" |
 Pseudomonas:
 
 | rank             | count |
-| ---------------- | ----- |
+|------------------|-------|
 | genus            | 1     |
 | species          | 415   |
 | strain           | 747   |
@@ -58,7 +58,7 @@ Pseudomonas:
 Acinetobacter:
 
 | rank             | count |
-| ---------------- | ----- |
+|------------------|-------|
 | genus            | 1     |
 | species group    | 2     |
 | species subgroup | 3     |
@@ -71,7 +71,7 @@ Acinetobacter:
 Species group/subgroup:
 
 | #tax_id | sci_name                                 | rank             |
-| ------- | ---------------------------------------- | ---------------- |
+|---------|------------------------------------------|------------------|
 | 2839056 | A. Taxon 24                              | species group    |
 | 909768  | A. calcoaceticus/baumannii complex       | species group    |
 | 136841  | P. aeruginosa group                      | species group    |
@@ -219,7 +219,7 @@ cat species.count.tsv |
 Basic (BRE) and extended (ERE) regular expression are two variations on the syntax of the specified pattern. BRE is the default in `sed` and `grep`. Use the POSIX-specified `-E` option (`-r, --regexp-extended`) to enable Extended Regular Expression (ERE) syntax. (The contents were from [BRE-vs-ERE](https://www.gnu.org/software/sed/manual/html_node/BRE-vs-ERE.html))
 
 | species_id | species                         | RS   | CHR |
-| ---------- | ------------------------------- | ---- | --- |
+|------------|---------------------------------|------|-----|
 | 287        | P. aeruginosa                   | 6607 | 533 |
 | 470        | A. baumannii                    | 6340 | 389 |
 | 33069      | P. viridiflava                  | 1538 | 7   |
@@ -309,7 +309,7 @@ cat reference.tsv |
 RefSeq:
 
 | #tax_id | organism_name                                                    | phylum                               |
-| ------- | ---------------------------------------------------------------- | ------------------------------------ |
+|---------|------------------------------------------------------------------|--------------------------------------|
 | 565050  | Caulobacter vibrioides NA1000                                    | Proteobacteria/Alphaproteobacteria   |
 | 192222  | Campylobacter jejuni subsp. jejuni NCTC 11168 = ATCC 700819      | Proteobacteria/Epsilonproteobacteria |
 | 208964  | Pseudomonas aeruginosa PAO1                                      | Proteobacteria/Gammaproteobacteria   |
@@ -759,7 +759,7 @@ cat order.lst |
 ```
 
 | #tax_id | order                 | #species | #strains |
-| ------- | --------------------- | -------- | -------- |
+|---------|-----------------------|----------|----------|
 | 1692040 | Acidiferrobacterales  | 3        | 3        |
 | 135624  | Aeromonadales         | 18       | 18       |
 | 135622  | Alteromonadales       | 52       | 118      |
@@ -829,7 +829,7 @@ cat genus.lst |
 ```
 
 | #tax_id | genus             | #species | #strains |
-| ------- | ----------------- | -------- | -------- |
+|---------|-------------------|----------|----------|
 | 469     | Acinetobacter     | 43       | 486      |
 | 642     | Aeromonas         | 12       | 12       |
 | 226     | Alteromonas       | 16       | 31       |
@@ -900,21 +900,36 @@ rm *.tmp
 
 ## NCBI taxonomy
 
-Done by `bp_taxonomy2tree.pl` from BioPerl
+> Done by `bp_taxonomy2tree.pl` from BioPerl
+>
+> - `bp_taxonomy2tree.pl`
+> 
+> ```txt
+> NAME
+>   bp_taxonomy2tree - Building a taxonomic tree based on the full lineages
+>   of a set of species names
+>
+> DESCRIPTION
+>   This scripts looks up the provided species names in the NCBI Taxonomy
+>   database, retrieves their full lineage and puts them in a Newick
+>   taxonomic tree displayed on screen.
+>
+>     bp_taxonomy2tree.pl -s Orangutan -s Gorilla -s Chimpanzee -s Human
+>     bp_taxonomy2tree.pl -s Orangutan -s Gorilla -s Chimpanzee -s "Homo Sapiens"
+> ```
 
-```txt
-NAME
-    bp_taxonomy2tree - Building a taxonomic tree based on the full lineages
-    of a set of species names
-
-DESCRIPTION
-    This scripts looks up the provided species names in the NCBI Taxonomy
-    database, retrieves their full lineage and puts them in a Newick
-    taxonomic tree displayed on screen.
-
-      bp_taxonomy2tree.pl -s Orangutan -s Gorilla -s Chimpanzee -s Human
-      bp_taxonomy2tree.pl -s Orangutan -s Gorilla -s Chimpanzee -s "Homo Sapiens"
-```
+> Can also provide arguments:
+>
+> `-e`: use the web-based Entrez tasxonomy database if you do not have the NCBI flatfiles installed
+>
+> `-o`: specify your
+>
+> `-a`: for the NCBI names file
+>
+> - `nw_display`
+> ```txt
+> nw_display [options
+> ```
 
 ```bash
 mkdir -p /mnt/e/data/Pseudomonas/tree
@@ -936,6 +951,8 @@ nw_display -s -b 'visibility:hidden' -w 600 -v 30 ncbi.nwk |
 
 MinHash was used and introduced in [plasmid.md](plasmid.md).
 
+- Using MinHash for grouping strains
+
 ```bash
 mkdir -p /mnt/e/data/Pseudomonas/mash
 cd /mnt/e/data/Pseudomonas/mash
@@ -952,11 +969,21 @@ for strain in $(cat ../strains.lst ); do
         xargs cat |
         mash sketch -k 21 -s 100000 -p 8 - -I "${strain}" -o ${strain}
 done
+# mash sketch 
+# -k <int>: k-mer 21 
+# sketch size: each 100000 will have at most this many non-redundant min-hashes
+# -I <path>: ID field for sketch of reads (instead of first sequence ID)
 
 mash triangle -E -p 8 -l <(
     cat ../strains.lst | parallel echo "{}.msh"
     ) \
     > dist.tsv
+# mash triangle [options] <seq1> [<seq2>] ...
+# Estimate the distance of each input seq to every other input seq.
+# Outputs a lower-triangular distance matrix in relaxed Phylip format.
+# input files can be fasta or fastq, gzipped or not, or .msh
+# -E: output edge list instead of Phylip matrix
+# -l: list input, lines in each <query> specify paths to seq files, one per line
 
 # fill matrix with lower triangle
 tsv-select -f 1-3 dist.tsv |
