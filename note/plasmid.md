@@ -17,7 +17,7 @@ I rewrote some commands according to my own demanding and added some notes in co
 mkdir -p /mnt/d/data/plasmid
 cd /mnt/d/data/plasmid
 
-rsync -avP ftp.ncbi.nlm.nih.gov::refseq/release/plasmid/ RefSeq/
+rsync -avP ftp.ncbi.nlm.nih.gov::refseq/release/plasmid/RefSeq/
 ```
 
 - Get taxon id and locus name.

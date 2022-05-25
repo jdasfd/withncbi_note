@@ -935,3 +935,62 @@ nw_display -s -b 'visibility:hidden' -w 600 -v 30 ncbi.nwk |
 ## Raw phylogenetic tree by MinHash
 
 MinHash was used and introduced in [plasmid.md](plasmid.md).
+
+```bash
+mkdir -p /mnt/e/data/Pseudomonas/mash
+cd /mnt/e/data/Pseudomonas/mash
+
+for strain in $(cat ../strains.lst ); do
+    2>&1 echo "==> ${strain}"
+
+    if [[ -e ${strain}.msh ]]; then
+        continue
+    fi
+
+    find ../ASSEMBLY/${strain} -name "*_genomic.fna.gz" |
+        grep -v "_from_" |
+        xargs cat |
+        mash sketch -k 21 -s 100000 -p 8 - -I "${strain}" -o ${strain}
+done
+
+mash triangle -E -p 8 -l <(
+    cat ../strains.lst | parallel echo "{}.msh"
+    ) \
+    > dist.tsv
+
+# fill matrix with lower triangle
+tsv-select -f 1-3 dist.tsv |
+    (tsv-select -f 2,1,3 dist.tsv && cat) |
+    (
+        cut -f 1 dist.tsv |
+            tsv-uniq |
+            parallel -j 1 --keep-order 'echo -e "{}\t{}\t0"' &&
+        cat
+    ) \
+    > dist_full.tsv
+
+cat dist_full.tsv |
+    Rscript -e '
+        library(readr);
+        library(tidyr);
+        library(ape);
+        pair_dist <- read_tsv(file("stdin"), col_names=F);
+        tmp <- pair_dist %>%
+            pivot_wider( names_from = X2, values_from = X3, values_fill = list(X3 = 1.0) )
+        tmp <- as.matrix(tmp)
+        mat <- tmp[,-1]
+        rownames(mat) <- tmp[,1]
+
+        dist_mat <- as.dist(mat)
+        clusters <- hclust(dist_mat, method = "ward.D2")
+        tree <- as.phylo(clusters)
+        write.tree(phy=tree, file="tree.nwk")
+
+        group <- cutree(clusters, h=0.4) # k=5
+        groups <- as.data.frame(group)
+        groups$ids <- rownames(groups)
+        rownames(groups) <- NULL
+        groups <- groups[order(groups$group), ]
+        write_tsv(groups, "groups.tsv")
+    '
+```
