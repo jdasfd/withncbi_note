@@ -916,19 +916,42 @@ rm *.tmp
 >
 >     bp_taxonomy2tree.pl -s Orangutan -s Gorilla -s Chimpanzee -s Human
 >     bp_taxonomy2tree.pl -s Orangutan -s Gorilla -s Chimpanzee -s "Homo Sapiens"
+>
+> -e: use the web-based Entrez tasxonomy database if you do not have the NCBI flatfiles installed
+>
+> -o: specify your
+>
+> -a: for the NCBI names file
 > ```
-
-> Can also provide arguments:
->
-> `-e`: use the web-based Entrez tasxonomy database if you do not have the NCBI flatfiles installed
->
-> `-o`: specify your
->
-> `-a`: for the NCBI names file
 >
 > - `nw_display`
+>
 > ```txt
-> nw_display [options
+> Displays a tree as a graph, as text or SVG.
+>
+> Synopsis
+>
+> nw_display [options] <tree filename|->
+>
+> -: the tree is read on stdin
+>
+> -b <string>: CSS for branch length lables. [only SVG]
+>
+> -s: output graph as SVG (default: ASCII graphics). All output is on stdout
+>
+> -w <number>: graph should be nowider than <number>, measured in characters
+> for text and pixels for SVG. Defaults: 80 (text), 300 (SVG)
+>
+> -v <number>: number of pixels between leaves
+> ```
+>
+> - `rsvg-convert`
+>
+> ```txt
+> Covert SVG files to other image formats
+>
+> USAGE:
+>   rsvg-convert [FLAGS] [OPTIONS] [FILE]...
 > ```
 
 ```bash
