@@ -917,6 +917,7 @@ rm *.tmp
 >     bp_taxonomy2tree.pl -s Orangutan -s Gorilla -s Chimpanzee -s Human
 >     bp_taxonomy2tree.pl -s Orangutan -s Gorilla -s Chimpanzee -s "Homo Sapiens"
 >
+> OPTIONS
 > -e: use the web-based Entrez tasxonomy database if you do not have the NCBI flatfiles installed
 >
 > -o: specify your
@@ -929,10 +930,10 @@ rm *.tmp
 > ```txt
 > Displays a tree as a graph, as text or SVG.
 >
-> Synopsis
->
+> Synopsis:
 > nw_display [options] <tree filename|->
 >
+> OPTIONS:
 > -: the tree is read on stdin
 >
 > -b <string>: CSS for branch length lables. [only SVG]
@@ -940,7 +941,7 @@ rm *.tmp
 > -s: output graph as SVG (default: ASCII graphics). All output is on stdout
 >
 > -w <number>: graph should be nowider than <number>, measured in characters
-> for text and pixels for SVG. Defaults: 80 (text), 300 (SVG)
+>              for text and pixels for SVG. Defaults: 80 (text), 300 (SVG)
 >
 > -v <number>: number of pixels between leaves
 > ```
@@ -971,6 +972,8 @@ nw_display -s -b 'visibility:hidden' -w 600 -v 30 ncbi.nwk |
 ```
 
 ## Raw phylogenetic tree by MinHash
+
+### MinHash grouping all strains
 
 MinHash was used and introduced in [plasmid.md](plasmid.md).
 
@@ -1008,6 +1011,13 @@ mash triangle -E -p 8 -l <(
 # -E: output edge list instead of Phylip matrix
 # -l: list input, lines in each <query> specify paths to seq files, one per line
 
+ls *.msh | wc -l
+#1952
+
+cat dist.tsv | wc -l
+#1904176
+#1952*1951/2*1, C(1952,2)
+
 # fill matrix with lower triangle
 tsv-select -f 1-3 dist.tsv |
     (tsv-select -f 2,1,3 dist.tsv && cat) |
@@ -1018,6 +1028,17 @@ tsv-select -f 1-3 dist.tsv |
         cat
     ) \
     > dist_full.tsv
+
+tsv-select -f 1-3 dist.tsv | (tsv-select -f 2,1,3 dist.tsv && cat) | wc -l
+#3808352
+# actually swap col1 and col2 and then using cat to combine them
+
+cut -f 1 dist.tsv | tsv-uniq | parallel -j 1 --keep-order 'echo -e "{}\t{}\t0"' | wc -l
+# other 1951 strains dist to themselves - 0
+
+cat dist_full.tsv | wc -l
+#3810303
+# 3808352+1951
 
 cat dist_full.tsv |
     Rscript -e '
@@ -1043,4 +1064,83 @@ cat dist_full.tsv |
         groups <- groups[order(groups$group), ]
         write_tsv(groups, "groups.tsv")
     '
+```
+
+### Tweak the mash tree
+
+> - `nw_reroot`
+> 
+> ```txt
+> (Re)roots a tree on a specified outgroup
+> 
+> Synopsis:
+> nw_reroot [-dhl] <newick trees filename|-> [lable*]
+> 
+> Input:
+> First argument is the name of a file that contains Newick trees, or '-' from stdin
+> 
+> Further arguments are node lables. If there is at least one label, the tree will be
+> re-rooted on their LCA (last common ancestor). If there is no label, the tree is re-
+> rooted on the longest branch.
+> ```
+> 
+> - `nw_order`
+> 
+> ```txt
+> Orders nodes according to various criteria, preserving topology
+> 
+> Synopsis:
+> nw_order [-c:hn] <newick trees filename|->
+> 
+> Input:
+> Argument is the name of a file that contains Newick trees, or '-' from stdin
+> 
+> Output:
+> Orders the tree and prints it out on standard output. By default, the ordering
+> field is the node's label for leaves, or the first child's order field for inner
+> nodes. The tree's topology is not altered: the biological info contained in the
+> tree is left intact.
+> 
+> Options:
+> -c <criterion>: specify order criterion. Possible criteria are:
+> 'a' (alphanumeric order of labels)
+> 'n' (number of descendants: nodes with fewer descendans appear first)
+> 'd' (de-ladderize: alternately put nodes with fewer descendants before or after
+> those with more)
+> ```
+
+```bash
+mkdir -p /mnt/e/data/Pseudomonas/tree
+cd /mnt/e/data/Pseudomonas/tree
+
+nw_reroot ../mash/tree.nwk Bac_subti_subtilis_168 Sta_aure_aureus_NCTC_8325 |
+    nw_order -c n - \
+    > mash.reroot.newick
+
+# rank::col
+ARRAY=(
+    'order::7'
+    'family::6'
+    'genus::5'
+    'species::4'
+)
+
+rm mash.condensed.map
+CUR_TREE=mash.reroot.newick
+
+for item in "${ARRAY[@]}" ; do
+    GROUP_NAME="${item%%::*}"
+    GROUP_COL="${item##*::}"
+
+    bash ~/Scripts/withncbi/taxon/condense_tree.sh ${CUR_TREE} ../strains.taxon.tsv 1 ${GROUP_COL}
+
+    mv condense.newick mash.${GROUP_NAME}.newick
+    cat condense.map >> mash.condensed.map
+
+    CUR_TREE=mash.${GROUP_NAME}.newick
+done
+
+# png
+nw_display -s -b 'visibility:hidden' -w 600 -v 30 mash.species.newick |
+    rsvg-convert -o Pseudomonas.mash.png
 ```
