@@ -1214,3 +1214,129 @@ ppanggolin workflow --anno pangenome/Pseudom_aeru_1.gbff.list --cpu 8 -o pangeno
 # ppanggolin workflow
 # .gbff.list example could be seen above
 ```
+
+## Collect proteins
+
+- `all.pro.fa`
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+mkdir -p PROTEINS
+
+find ASSEMBLY -maxdepth 1 -mindepth 1 -type d |
+    sort |
+    grep 'ASSEMBLY/' |
+    wc -l
+#1958
+
+find ASSEMBLY -type f -name "*_protein.faa.gz" |
+    wc -l
+#1958
+
+cat strains.lst |
+    wc -l
+#1952
+
+for STRAIN in $(cat strains.lst); do
+    gzip -dcf ASSEMBLY/${STRAIN}/*_protein.faa.gz
+done \
+    > PROTEINS/all.pro.fa
+
+cat PROTEINS/all.pro.fa |
+    perl -nl -e '
+        BEGIN { our %seen; our $h; }
+
+        if (/^>/) {
+            $h = (split(" ", $_))[0];
+            $seen{$h}++;
+            $_ = $h;
+        }
+        print if $seen{$h} == 1;
+    ' \
+    > PROTEINS/all.uniq.fa
+# $h in perl represented protein accessions right after '>'
+# $seen{$h} == 1 will gives out those proteins when they first occurred
+# occurrence will be recorded by hash %seen
+
+# counting proteins
+cat PROTEINS/all.pro.fa |
+    grep "^>" |
+    wc -l
+#8754303
+
+cat PROTEINS/all.pro.fa |
+    grep "^>" |
+    tsv-uniq |
+    wc -l
+#3995205
+
+# annotations may be different
+cat PROTEINS/all.uniq.fa |
+    grep "^>" |
+    wc -l
+#3944568
+# which means the same accession annotated differently 
+
+# ribonuclease
+cat PROTEINS/all.pro.fa |
+    grep "ribonuclease" |
+    grep -v "deoxyribonuclease" |
+    perl -nl -e 's/^>\w+\.\d+\s+//g; print' | # removed accession
+    perl -nl -e 's/\s+\[.+?\]$//g; print' | # removed [SPECIES]
+    perl -nl -e 's/MULTISPECIES: //g; print' |
+    sort |
+    uniq -c |
+    sort -nr
+ # only grep RNase, so the DNase should be discarded
+```
+
+- `all.replace.fa`
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+rm PROTEINS/all.strain.tsv
+for STRAIN in $(cat strains.lst); do
+    gzip -dcf ASSEMBLY/${STRAIN}/*_protein.faa.gz |
+        grep "^>" |
+        cut -d" " -f 1 |
+        sed "s/^>//" |
+        STRAIN=${STRAIN} perl -nl -e '
+            $n = $_;
+            $s = $n;
+            $s =~ s/\.\d+//;
+            printf qq{%s\t%s_%s\t%s\n}, $n, $ENV{STRAIN}, $s, $ENV{STRAIN};
+        ' \
+    > PROTEINS/${STRAIN}.replace.tsv
+
+    cut -f 2,3 PROTEINS/${STRAIN}.replace.tsv >> PROTEINS/all.strain.tsv
+
+    faops replace -s ASSEMBLY/${STRAIN}/*_protein.faa.gz <(cut -f 1,2 PROTEINS/${STRAIN}.replace.tsv) stdout
+
+    rm PROTEINS/${STRAIN}.replace.tsv
+done \
+    > PROTEINS/all.replace.fa
+# In perl, environment variables in a special hash named %ENV
+# So you could use $ENV{STRAIN} to access STRAIN in ENV list
+# faops replace: Replace headers from a FA file
+# -s: ouly output seqs in the list, like `faops some`
+# <replace.tsv> is a tab-separated file containing two fields
+# original_name \t replace_name
+# After running commands above, all proteins' name were changed from accessions to names
+
+cat PROTEINS/all.replace.fa |
+    grep "^>" |
+    wc -l
+#8754303
+
+(echo -e "#name\tstrain" && cat PROTEINS/all.strain.tsv)  \
+    > temp &&
+    mv temp PROTEINS/all.strain.tsv
+
+faops size PROTEINS/all.replace.fa > PROTEINS/all.replace.sizes
+
+(echo -e "#name\tsize" && cat PROTEINS/all.replace.sizes) > PROTEINS/all.size.tsv
+
+rm PROTEINS/all.replace.sizes
+```
