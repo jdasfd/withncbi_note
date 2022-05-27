@@ -10,6 +10,24 @@ The basic taxonomy ranks are here:
 |--------|---------|--------|-------|-------|--------|-------|---------|
 | 域      | 界       | 门      | 纲     | 目     | 科      | 属     | 种       |
 
+## Software
+
+- PPanGGOLiN
+
+Installation steps can be found [here](https://github.com/wang-q/dotfiles/blob/master/others.sh) 
+
+```bash
+if grep -q -i PYTHON_39_PATH $HOME/.bashrc; then
+    echo "==> .bashrc already contains PYTHON_39_PATH"
+else
+    echo "==> Update .bashrc"
+
+    echo '# PYTHON_39_PATH' >> $HOME/.bashrc
+    PYTHON_39_PATH="export PATH=\"/home/linuxbrew/.linuxbrew/Cellar/python@3.9/3.9.13/bin:\$PATH\""
+    echo ${PYTHON_39_PATH} >> $HOME/.bashrc
+fi
+```
+
 ## Strain info
 
 - Pseudomonas
@@ -680,6 +698,7 @@ done |
     tsv-uniq | # remove all header, keep the first line
     tee ASSEMBLY/n50.tsv
 # n50.tsv after transpose will give out every name N50 info
+# xargs cat: because the faops accepted the gz file, so cat fna.gz and xargs to faops
 # file header: name\tN50\tS\tC
 # -S: compute sum of size of all entries
 # -C: count entries
@@ -1143,4 +1162,55 @@ done
 # png
 nw_display -s -b 'visibility:hidden' -w 600 -v 30 mash.species.newick |
     rsvg-convert -o Pseudomonas.mash.png
+```
+
+## Pangenome
+
+> - ppanggolin
+>
+> Using Partitioned PanGenome Graph Of Linked Neighbors (PPanGGOLiN).
+>
+> PPanGGOLiN is a software suite used to create and manipulate prokaryotic pangenomes from a set of either genomic DNA sequences or provided genome annotations.
+> 
+> PPanGGOLiN builds pangenomes through a graphical model and a statistical method to partition gene families in persistent, shell and cloud genomes.
+>
+> ```txt
+> ppanggolin workflow --fasta/--anno ORGANISMS_FASTA_LIST/ORGANISMS_ANNOTATION_LIST
+> It uses parameters that we found to be generally the best when working with species pangenomes.
+>
+> The file ORGANISMS_FASTA_LIST is a tsv-separated file with the following organisation:
+>   1. The first col contains a unique organism name (without whitespace)
+>   2. The second col contains the path to the associated FASTA/GFF file
+>   3. (Only in fasta) Circular contig identifiers are indicated
+>   4. Each line represents an organism
+> ```
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+mkdir -p pangenome
+
+cat strains.lst |
+    grep "^Pseudom_aeru_" |
+    parallel --no-run-if-empty --linebuffer -k -j 4 '
+        GBFF=$(compgen -G "ASSEMBLY/{}/*_genomic.gbff.gz")
+
+        if [ "${GBFF}" == "" ]; then
+            exit;
+        fi
+
+        echo {}
+        compgen -G "ASSEMBLY/{}/*_genomic.gbff.gz"
+    ' |
+    paste - - \
+    > pangenome/Pseudom_aeru.gbff.list
+# grep "^Pseudom_aeru_": will get all P. aeruginosa
+# after paste, it will be the name, protein file path
+
+wc -l < pangenome/Pseudom_aeru.gbff.list
+# 391
+
+ppanggolin workflow --anno pangenome/Pseudom_aeru_1.gbff.list --cpu 8 -o pangenome/Pseudom_aeru
+# ppanggolin workflow
+# .gbff.list example could be seen above
 ```
