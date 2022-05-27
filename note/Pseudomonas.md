@@ -1219,6 +1219,8 @@ ppanggolin workflow --anno pangenome/Pseudom_aeru_1.gbff.list --cpu 8 -o pangeno
 
 - `all.pro.fa`
 
+Merge all proteins to a file and using accession to get uniq one.
+
 ```bash
 cd /mnt/e/data/Pseudomonas
 
@@ -1293,6 +1295,8 @@ cat PROTEINS/all.pro.fa |
 
 - `all.replace.fa`
 
+Replace all proteins' name into strains_accession format. 
+
 ```bash
 cd /mnt/e/data/Pseudomonas
 
@@ -1339,4 +1343,62 @@ faops size PROTEINS/all.replace.fa > PROTEINS/all.replace.sizes
 (echo -e "#name\tsize" && cat PROTEINS/all.replace.sizes) > PROTEINS/all.size.tsv
 
 rm PROTEINS/all.replace.sizes
+```
+
+- `all.info.tsv`
+
+Combine all info into one file - including name, strain, size, and annotation.
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+for STRAIN in $(cat strains.lst); do
+    gzip -dcf ASSEMBLY/${STRAIN}/*_protein.faa.gz |
+        grep "^>" |
+        sed "s/^>//" |
+        perl -nl -e '/\[.+\[/ and s/\[/\(/; print' |
+        perl -nl -e '/\].+\]/ and s/\]/\)/; print' |
+        perl -nl -e 's/\s+\[.+?\]$//g; print' |
+        perl -nl -e 's/MULTISPECIES: //g; print' |
+        STRAIN=${STRAIN} perl -nl -e '
+            /^(\w+)\.\d+\s+(.+)$/ or next;
+            printf qq{%s_%s\t%s\n}, $ENV{STRAIN}, $1, $2;
+        '
+done \
+    > PROTEINS/all.annotation.tsv
+
+cat PROTEINS/all.annotation.tsv |
+    wc -l
+#8754303
+
+(echo -e "#name\tannotation" && cat PROTEINS/all.annotation.tsv) \
+    > temp &&
+    mv temp PROTEINS/all.annotation.tsv
+
+# check differences
+cat PROTEINS/all.size.tsv |
+    grep -F -f <(cut -f 1 PROTEINS/all.annotation.tsv) -v
+# -F/--fixed-strings: comparing strings directly, whole strings as PATTERNS
+# -f/--file=FILE: take PATTERNS from FILE
+# nothing showed on screen, so col1 from both files were the same 
+
+tsv-join \
+    PROTEINS/all.strain.tsv \
+    --data-fields 1 \
+    -f PROTEINS/all.size.tsv \
+    --key-fields 1 \
+    --append-fields 2 \
+    > PROTEINS/all.strain_size.tsv
+
+tsv-join \
+    PROTEINS/all.strain_size.tsv \
+    --data-fields 1 \
+    -f PROTEINS/all.annotation.tsv \
+    --key-fields 1 \
+    --append-fields 2 \
+    > PROTEINS/all.info.tsv
+
+cat PROTEINS/all.info.tsv |
+    wc -l
+#8754304
 ```
