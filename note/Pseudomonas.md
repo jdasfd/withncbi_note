@@ -1402,3 +1402,44 @@ cat PROTEINS/all.info.tsv |
     wc -l
 #8754304
 ```
+
+## Phylogenetics with 40 single-copy genes
+
+### Find correspoding proteins by `hmmsearch`
+
+- Download HMM models as described in `hmm/README.md`
+- The `E_VALUE` was manually adjusted to 1e-20 to reach a balance between sensitivity and speciality.
+
+```bash
+E_VALUE=1e-20
+
+cd /mnt/e/data/Pseudomonas
+
+## example
+#gzip -dcf ASSEMBLY/Ac_axa_ATCC_25176/*_protein.faa.gz |
+#    hmmsearch -E 1e-20 --domE 1e-20 --noali --notextw ~/data/HMM/scg40/bacteria_and_archaea_dir/BA00001.hmm - |
+#    grep '>>' |
+#    perl -nl -e '/>>\s+(\S+)/ and print $1'
+
+# Find all genes
+for marker in BA000{01..40}; do
+    >&2 echo "==> marker [${marker}]"
+
+    mkdir -p PROTEINS/${marker}
+
+    for ORDER in $(cat order.lst); do
+        >&2 echo "==> ORDER [${ORDER}]"
+
+        cat taxon/${ORDER} |
+            parallel --no-run-if-empty --linebuffer -k -j 8 "
+                gzip -dcf ASSEMBLY/{}/*_protein.faa.gz |
+                    hmmsearch -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw ~/data/HMM/scg40/bacteria_and_archaea_dir/${marker}.hmm - |
+                    grep '>>' |
+                    perl -nl -e ' m{>>\s+(\S+)} and printf qq{%s\t%s\n}, \$1, {}; '
+            " \
+            > PROTEINS/${marker}/${ORDER}.replace.tsv
+    done
+
+    echo
+done
+```
