@@ -34,3 +34,13 @@ tar --directory HMM -xzvf TIGRFAMs_14.0_HMM.tar.gz TIGR02013.HMM
 tar --directory HMM -xzvf TIGRFAMs_14.0_HMM.tar.gz TIGR00485.HMM
 ```
 
+## 40 single-copy genes
+
+```bash
+mkdir -p ~/data/HMM/scg40
+cd ~/data/HMM/scg40
+
+curl -LO https://ndownloader.figshare.com/files/3093482
+
+tar xvfz 3093482
+```

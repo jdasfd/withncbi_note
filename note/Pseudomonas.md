@@ -1410,6 +1410,20 @@ cat PROTEINS/all.info.tsv |
 - Download HMM models as described in `hmm/README.md`
 - The `E_VALUE` was manually adjusted to 1e-20 to reach a balance between sensitivity and speciality.
 
+> - hmmsearch
+> 
+> ```txt
+> hmmsearch :: search profile(s) against a sequence database
+> HMMER 3.3.2 (Nov 2020); http://hmmer.org/
+> 
+> Options controlling reporting thresholds:
+> -E <x>:  report sequences <= this E-value threshold in output  [10.0]  (x>0)
+> --domE <x>: report domains <= this e-value threshold in output  [10.0]  (x>0)
+> 
+> Options directing output:
+> --noali: don't output alignments, so output is smaller
+> --notextw: unlimit ASCII text output line width
+> ```
 ```bash
 E_VALUE=1e-20
 
