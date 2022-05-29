@@ -36,6 +36,10 @@ tar --directory HMM -xzvf TIGRFAMs_14.0_HMM.tar.gz TIGR00485.HMM
 
 ## 40 single-copy genes
 
+The protocol takes all the proteins in all the genomes under consideration and, using rapid searching and clustering algorithms, generates protein families from that complete protein set.
+
+This systematic approach reveals 40 PhyEco marker candidates spanning the domains of bacteria and archaea.
+
 ```bash
 mkdir -p ~/data/HMM/scg40
 cd ~/data/HMM/scg40
