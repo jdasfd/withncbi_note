@@ -1410,30 +1410,48 @@ cat PROTEINS/all.info.tsv |
 - Download HMM models as described in `hmm/README.md`
 - The `E_VALUE` was manually adjusted to 1e-20 to reach a balance between sensitivity and speciality.
 
+HMM ([Hidden Markov Model](https://en.wikipedia.org/wiki/Hidden_Markov_model)) is a statistical Markov model in which the system being modeled is assumed to be a Markov process - call it $X$ - with unobservable ("hidden") states.
+
+As part of the definition, HMM requires that there be an observable process $Y$ whose outcomes are "influenced" by the outcomes of $X$ in a known way.
+
+Different transduction matrix would give out different multialignment results.
+
 > - hmmsearch
 > 
 > ```txt
 > hmmsearch :: search profile(s) against a sequence database
 > HMMER 3.3.2 (Nov 2020); http://hmmer.org/
 > 
+> Usage: hmmsearch [options] <hmmfile> <seqdb>
+> 
+> Either the query <hmmfile> or the target <seqdb> may be '-', in which case the query
+> profile or target database input will be read from a <stdin> pipe instead of from a file.
+> 
 > Options controlling reporting thresholds:
 > -E <x>:  report sequences <= this E-value threshold in output  [10.0]  (x>0)
-> --domE <x>: report domains <= this e-value threshold in output  [10.0]  (x>0)
+> --domE <x>: report domains <= this E-value threshold in output  [10.0]  (x>0)
 > 
 > Options directing output:
 > --noali: don't output alignments, so output is smaller
 > --notextw: unlimit ASCII text output line width
 > ```
+> 
+> `hmmsearch` may take minutes or even hours to run, dpending on thee size of the seq database.
+> 
+> The output consists of four sections: a ranked list of the best scoring sequences, a ranked list of the best scoring domains, alignments for all the best scoring domains, and a histogram of the scores.
+
 ```bash
 E_VALUE=1e-20
 
 cd /mnt/e/data/Pseudomonas
 
 ## example
-#gzip -dcf ASSEMBLY/Ac_axa_ATCC_25176/*_protein.faa.gz |
-#    hmmsearch -E 1e-20 --domE 1e-20 --noali --notextw ~/data/HMM/scg40/bacteria_and_archaea_dir/BA00001.hmm - |
+#gzip -dcf ASSEMBLY/Acidif_thio_GCF_001705075_2/*_protein.faa.gz |
+#    hmmsearch -E 1e-20 --domE 1e-20 --noali --notextw ~/data/HMM/scg40/bacteria_and_archaea_dir/BA00040.hmm - |
 #    grep '>>' |
 #    perl -nl -e '/>>\s+(\S+)/ and print $1'
+
+# the example showed above was extracted domain accession from the hmmsearch results
 
 # Find all genes
 for marker in BA000{01..40}; do
@@ -1456,4 +1474,141 @@ for marker in BA000{01..40}; do
 
     echo
 done
+```
+
+### Create a valid marker gene list
+
+- `hmmsearch` may identify more than one copy for some marker genes
+  - BA00004: translation initiation factor EF-2
+  - BA00005: translation initiation factor IF-2
+  - BA00008: signal recognition particle protein
+- Acinetobacter
+  - BA00028
+
+Compare proteins and strains
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+for marker in BA000{01..03} BA000{06..07} BA000{09..27} BA000{29..40}; do
+    echo ${marker}
+done > marker.lst
+
+for marker in $(cat marker.lst); do
+    echo "==> marker [${marker}]"
+
+    for ORDER in $(cat order.lst); do
+        cat PROTEINS/${marker}/${ORDER}.replace.tsv |
+            cut -f 2 |
+            diff - taxon/${ORDER}
+    done
+
+    echo
+done
+
+# Part of the output:
+#==> marker [BA00038]
+#434d433
+#< Acin_pittii_PHEA_2
+#0a1
+#> Act_del_GCF_900638385_1
+#13a15
+#> Hae_aeg_GCF_900475885_1
+#31a34
+#> Ve_pul_GCF_013377275_1
+#2a3
+#> Are_dae_GCF_007993735_1
+#1a2
+#> Alt_aus_GCF_000934525_1
+#4a5
+#> Leg_antarctica_GCF_011764505_1
+#6a8,9
+#> Leg_gee_GCF_004571195_1
+#> Leg_hac_GCF_000953655_1
+#7a11
+#> Leg_jor_GCF_900637635_1
+#699a700
+#> Pseudom_puti_GCF_014854555_1
+#0a1
+#> Chl_tracho_D_UW_3_CX
+
+# diff: Compare FILES line by line
+# diff file1 file2
+# diff output (so called 'normal diff'):
+# < denotes lines in file1 (in this case means -, that is order replace by hmmsearch)
+# > denotes lines in file2 (in this case means taxon/ files with the corresponding name)
+# d stands for deletion, a stands for adding, c stands for changing
+# 434d433 means the 434 line number in file1 was deleted and has the line number 433 in file2
+# 4a5 means starting form line number 4 in file1 added and this added line is the number 5 in file2
+```
+
+### Align and concat marker genes to create species tree
+
+- Strains within a species share a large proportion of identical protein sequences.
+- Use `trimal -automated1` to remove gaps.
+
+> - `trimAL`
+> 
+> ```txt
+> Basic usage:
+> trimal -in <inputfile> -out <outputfile> -(other options)
+> ```
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+# Extract sequences
+cat marker.lst |
+    parallel --no-run-if-empty --linebuffer -k -j 4 '
+        >&2 echo "==> marker [{}]"
+
+        for ORDER in $(cat order.lst); do
+            cat PROTEINS/{}/${ORDER}.replace.tsv
+        done \
+            > PROTEINS/{}/{}.replace.tsv
+
+        faops some PROTEINS/all.uniq.fa <(
+            cat PROTEINS/{}/{}.replace.tsv |
+                cut -f 1 |
+                tsv-uniq
+            ) stdout \
+            > PROTEINS/{}/{}.pro.fa
+    '
+
+# Align each markers with `muscle`
+cat marker.lst |
+    parallel --no-run-if-empty --linebuffer -k -j 4 '
+        >&2 echo "==> marker [{}]"
+
+        muscle -quiet -in PROTEINS/{}/{}.pro.fa -out PROTEINS/{}/{}.aln.fa
+    '
+
+for marker in $(cat marker.lst); do
+    >&2 echo "==> marker [${marker}]"
+
+    # 1 name to many names
+    cat PROTEINS/${marker}/${marker}.replace.tsv |
+        parallel --no-run-if-empty --linebuffer -k -j 4 "
+            faops replace -s PROTEINS/${marker}/${marker}.aln.fa <(echo {}) stdout
+        " \
+        > PROTEINS/${marker}/${marker}.replace.fa
+done
+
+# Concat marker genes
+for marker in $(cat marker.lst); do
+    # sequences in one line
+    faops filter -l 0 PROTEINS/${marker}/${marker}.replace.fa stdout
+
+    # empty line for .fas
+    echo
+done \
+    > PROTEINS/scg40.aln.fas
+
+fasops concat PROTEINS/scg40.aln.fas strains.lst -o PROTEINS/scg40.aln.fa
+
+# Trim poorly aligned regions with `TrimAl`
+trimal -in PROTEINS/scg40.aln.fa -out PROTEINS/scg40.trim.fa -automated1
+
+# FastTree produces NJ trees to simulate ML ones
+FastTree PROTEINS/scg40.trim.fa > PROTEINS/scg40.trim.newick
 ```
