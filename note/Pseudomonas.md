@@ -1440,18 +1440,21 @@ Different transduction matrix would give out different multialignment results.
 > 
 > The output consists of four sections: a ranked list of the best scoring sequences, a ranked list of the best scoring domains, alignments for all the best scoring domains, and a histogram of the scores.
 
+- An example
+
+```bash
+gzip -dcf ASSEMBLY/Acidif_thio_GCF_001705075_2/*_protein.faa.gz |
+    hmmsearch -E 1e-20 --domE 1e-20 --noali --notextw ~/data/HMM/scg40/bacteria_and_archaea_dir/BA00040.hmm - |
+    grep '>>' |
+    perl -nl -e '/>>\s+(\S+)/ and print $1'
+
+# the example showed above was extracted domain accession from the hmmsearch results
+```
+
 ```bash
 E_VALUE=1e-20
 
 cd /mnt/e/data/Pseudomonas
-
-## example
-#gzip -dcf ASSEMBLY/Acidif_thio_GCF_001705075_2/*_protein.faa.gz |
-#    hmmsearch -E 1e-20 --domE 1e-20 --noali --notextw ~/data/HMM/scg40/bacteria_and_archaea_dir/BA00040.hmm - |
-#    grep '>>' |
-#    perl -nl -e '/>>\s+(\S+)/ and print $1'
-
-# the example showed above was extracted domain accession from the hmmsearch results
 
 # Find all genes
 for marker in BA000{01..40}; do
@@ -1550,8 +1553,38 @@ done
 > - `trimAL`
 > 
 > ```txt
+> trimAl is a tool for the automated removal of spurious sequences or poorly aligned regions
+> from a multiple sequence alignment.
+> 
 > Basic usage:
 > trimal -in <inputfile> -out <outputfile> -(other options)
+> 
+> Options:
+> -automated1: Use a heuristic selection of the automatic method based on similarity statistics.
+> (Optimized for Maximum Likelihood phylogenetic tree reconstruction).
+> ```
+> 
+> - `muscle`
+> 
+> ```txt
+> MUSCLE stands for MUltiple Sequence Comparison by Log-Expectation.
+> 
+> Basic usage:
+> muscle -in <inputfile> -out <outputfile>
+> 
+> Options:
+> -quiet: Do not write progress messages to stderr
+> ```
+> 
+> - `FastTree`
+> 
+> ```txt
+> FastTree infers approximately-maximum-likelihood phylogenetic trees
+> from alignments of nucleotide or protein sequences.
+> 
+> Basic usage:
+> FastTree protein_alignment > tree
+> FastTree -nt nucleotide_alignment > tree
 > ```
 
 ```bash
@@ -1574,6 +1607,7 @@ cat marker.lst |
             ) stdout \
             > PROTEINS/{}/{}.pro.fa
     '
+# cat a marker sub-dir into one file, and then using faops some to extract protein fasta
 
 # Align each markers with `muscle`
 cat marker.lst |
@@ -1593,6 +1627,8 @@ for marker in $(cat marker.lst); do
         " \
         > PROTEINS/${marker}/${marker}.replace.fa
 done
+# because .replace.tsv got from the above command lines contained two cols
+# so faops replace will replace the accession to strain_pro
 
 # Concat marker genes
 for marker in $(cat marker.lst); do
@@ -1611,4 +1647,41 @@ trimal -in PROTEINS/scg40.aln.fa -out PROTEINS/scg40.trim.fa -automated1
 
 # FastTree produces NJ trees to simulate ML ones
 FastTree PROTEINS/scg40.trim.fa > PROTEINS/scg40.trim.newick
+```
+
+### Tweak the concat tree
+
+```bash
+cd /mnt/e/data/Pseudomonas/tree
+
+nw_reroot ../PROTEINS/scg40.trim.newick Bac_subti_subtilis_168 Sta_aure_aureus_NCTC_8325 |
+    nw_order -c n - \
+    > scg40.reroot.newick
+
+# rank::col
+ARRAY=(
+#    'order::7'
+#    'family::6'
+    'genus::5'
+    'species::4'
+)
+
+rm scg40.condensed.map
+CUR_TREE=scg40.reroot.newick
+
+for item in "${ARRAY[@]}" ; do
+    GROUP_NAME="${item%%::*}"
+    GROUP_COL="${item##*::}"
+
+    bash ~/Scripts/withncbi/taxon/condense_tree.sh ${CUR_TREE} ../strains.taxon.tsv 1 ${GROUP_COL}
+
+    mv condense.newick scg40.${GROUP_NAME}.newick
+    cat condense.map >> scg40.condensed.map
+
+    CUR_TREE=scg40.${GROUP_NAME}.newick
+done
+
+# png
+nw_display -s -b 'visibility:hidden' -w 600 -v 30 scg40.species.newick |
+    rsvg-convert -o Pseudomonas.scg40.png
 ```
