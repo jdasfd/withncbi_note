@@ -1420,7 +1420,7 @@ Different transduction matrix would give out different multialignment results.
 > 
 > ```txt
 > hmmsearch :: search profile(s) against a sequence database
-> HMMER 3.3.2 (Nov 2020); http://hmmer.org/
+> HMMER 3.3.2 (Nov 2020); https://hmmer.org/
 > 
 > Usage: hmmsearch [options] <hmmfile> <seqdb>
 > 
@@ -1863,4 +1863,399 @@ done
 # png
 nw_display -s -b 'visibility:hidden' -w 600 -v 30 bac120.species.newick |
     rsvg-convert -o Pseudomonas.bac120.png
+```
+
+## Protein domains and families
+
+### Proteins in Pseudomonas strains
+
+- [`GO:0005975` carbohydrate metabolic process](https://www.ebi.ac.uk/QuickGO/GTerm?id=GO:0005975)
+  - http://www.cazy.org/Glycoside-Hydrolases.html
+
+- [`GO:0016837` carbon-oxygen lyase activity, acting on polysaccharides](https://www.ebi.ac.uk/QuickGO/GTerm?id=GO:0016837)
+  - http://www.cazy.org/Polysaccharide-Lyases.html
+
+- Search `https://www.pseudomonas.com/goterms` for `GO:0005975`
+  - 107 - Pseudomonas aeruginosa PAO1
+  - 7360 - Pseudomonas putida KT2440
+  - 479 - Pseudomonas chlororaphis subsp. aureofaciens 30-84
+  - 116 - Pseudomonas fluorescens SBW25
+  - 113 - Pseudomonas protegens Pf-5
+  - 123 - Pseudomonas stutzeri A1501
+  - 112 - Pseudomonas syringae pv. syringae B728a
+  - 114 - Pseudomonas savastanoi pv. phaseolicola 1448A
+  - 117 - Pseudomonas entomophila L48
+  - 109 - Pseudomonas aeruginosa UCBPP-PA14
+
+- The `E_VALUE` was adjusted to 1e-5 to capture all possible sequences
+
+```bash
+cd /mnt/e/data/Pseudomonas/
+mkdir -p /mnt/e/data/Pseudomonas/DOMAINS/ref_strain
+
+for ID in 107 7360 479 116 113 123 112 114 117 109 ; do
+    URL=$(printf 'https://www.pseudomonas.com/goterms/list?accession=GO:0005975&strain_id=%d&format=TAB' $ID)
+    curl -L ${URL}
+done  |
+    sed '1d' |
+    tsv-select -f 1 \
+    > DOMAINS/ref_strain/locus.lst
+
+# this step will split ID of genes from gff using locus_tags as key strings
+gzip -dcf \
+    ASSEMBLY/Pseudom_aeru_PAO1/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_puti_KT2440_GCF_000007565_2/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_chl_aureofaciens_30_84_GCF_000281915_1/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_fluo_SBW25_GCF_000009225_2/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_prot_Pf_5_GCF_000012265_1/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_stu_A1501_GCF_000013785_1/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_syr_pv_syringae_B728a_GCF_000012245_1/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_sav_pv_phaseolicola_1448A_GCF_000012205_1/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_entomophi_L48_GCF_000026105_1/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_aeru_UCBPP_PA14_GCF_000014625_1/*_genomic.gff.gz |
+    grep -v "^#" |
+    grep -F -w -f DOMAINS/ref_strain/locus.lst |
+    tsv-filter --str-eq 3:gene |
+    perl -nl -e 'print $1 if /\bID=(.+?);/i' \
+    > DOMAINS/ref_strain/gene.lst
+# grep 
+# -w/--word-regexp: match only whole words
+# -F/--fixed-strings: PATTERNS are strings
+
+# this step will split Names of CDS from gff using gene IDs as key strings
+gzip -dcf \
+    ASSEMBLY/Pseudom_aeru_PAO1/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_puti_KT2440_GCF_000007565_2/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_chl_aureofaciens_30_84_GCF_000281915_1/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_fluo_SBW25_GCF_000009225_2/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_prot_Pf_5_GCF_000012265_1/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_stu_A1501_GCF_000013785_1/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_syr_pv_syringae_B728a_GCF_000012245_1/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_sav_pv_phaseolicola_1448A_GCF_000012205_1/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_entomophi_L48_GCF_000026105_1/*_genomic.gff.gz \
+    ASSEMBLY/Pseudom_aeru_UCBPP_PA14_GCF_000014625_1/*_genomic.gff.gz |
+    grep -v "^#" |
+    grep -F -w -f DOMAINS/ref_strain/gene.lst |
+    tsv-filter --str-eq 3:CDS |
+    perl -nl -e 'print $1 if /\bName=(.+?);/i' \
+    > DOMAINS/ref_strain/pro.lst
+
+wc -l DOMAINS/ref_strain/*.lst
+#497 DOMAINS/ref_strain/gene.lst
+#513 DOMAINS/ref_strain/locus.lst
+#497 DOMAINS/ref_strain/pro.lst
+
+faops some PROTEINS/all.uniq.fa DOMAINS/ref_strain/pro.lst stdout \
+    > DOMAINS/ref_strain/pro.fa
+
+faops size DOMAINS/ref_strain/pro.fa | wc -l
+#495
+# 2 miss from pro.lst
+
+# prepare an HMM database for faster hmmscan searches
+# hmmpress ~/data/HMM/PFAM/Pfam-A.hmm
+
+E_VALUE=1e-5
+
+hmmscan --cpu 4 -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw \
+    ~/data/HMM/PFAM/Pfam-A.hmm DOMAINS/ref_strain/pro.fa |
+    grep '>>' |
+    perl -nl -e '/>>\s+(\S+)/ and print $1' |
+    tee DOMAINS/ref_strain/domain.lst
+# the same arguments with hmmsearch
+# --noali: don't output alignments, so output is smaller
+# --notextw: unlimit ASCII text output line width
+# -E <x>: report models <= this E-value threshold in output  [10.0]  (x>0)
+# --domE <x>: report domains <= this E-value threshold in output  [10.0]  (x>0)
+
+# query ID against .hmm.dat to find AC
+cat ~/data/HMM/PFAM/Pfam-A.hmm.dat |
+    grep -F -w -f DOMAINS/ref_strain/domain.lst -A 2 |
+    grep -E ' (ID|AC) ' |
+    perl -nl -e 'print substr($_, 10) ' |
+    paste -d $'\t' - - |
+    perl -nlp -e 's/\.\d+$//g' |
+    tsv-select -f 2,1 \
+    > DOMAINS/ref_strain/pfam_domain.tsv
+# grep -A/--after-context=NUM: print NUM lines of trailing context
+
+wc -l < DOMAINS/ref_strain/pfam_domain.tsv
+#107
+```
+
+### Scrap PFAM domains
+
+- Perform keyword search in `pfam` and save the result page as `html only`.
+  - [GO:0005975](https://pfam.xfam.org/search/keyword?query=GO%3A0005975)
+  - [Glyco_hyd](http://pfam.xfam.org/search/keyword?query=Glyco_hyd)
+
+> - `pup`
+> 
+> ```txt
+> Usage:
+> pup [flags] [selectors] [optional display function]
+> ```
+> 
+> `tldr pup`
+> 
+> ```txt
+> Command-line HTML parsing tool.
+> More information: <https://github.com/ericchiang/pup>.
+> 
+> - Print all text from the filtered HTML elements and their children:
+>     cat index.html | pup 'div text{}'
+> ```
+
+```bash
+cd /mnt/e/data/Pseudomonas/
+
+cp DOMAINS/ref_strain/pfam_domain.tsv raw.tsv
+
+cat GO_0005975.htm |
+    pup 'table.resultTable tr td text{}' |
+    grep '\S' |
+    paste -d $'\t' - - - - - |
+    tsv-select -f 2-4 \
+    >> raw.tsv
+
+cat Glyco_hyd.htm |
+    pup 'table.resultTable tr td text{}' |
+    grep '\S' |
+    paste -d $'\t' - - - - - |
+    tsv-select -f 2-4 \
+    >> raw.tsv
+# \S: is a negated \s; it represents any non-whitespace character, [^\s]
+
+#* [carbohydrate metabolic](https://pfam.xfam.org/search/keyword?query=carbohydrate+metabolic)
+#cat carbohydrate_metabolic.htm |
+#    pup 'table.resultTable tr td text{}' |
+#    grep '\S' |
+#    paste -d $'\t' - - - - - - - - |
+#    tsv-select -f 2-4 \
+#    >> raw.tsv
+
+#* [Glycosyl_hydrolase](https://pfam.xfam.org/search/keyword?query=Glycosyl+hydrolase)
+#cat Glycosyl_hydrolase.htm |
+#    pup 'table.resultTable tr td text{}' |
+#    grep '\S' |
+#    paste -d $'\t' - - - - - - - - - |
+#    tsv-filter --ne 5:10000000 | # Text fields of Pfam entries are not empty
+#    tsv-select -f 2-4 \
+#    >> raw.tsv
+
+wc -l < raw.tsv
+#290
+
+cat raw.tsv |
+    tsv-filter --str-not-in-fld 2:"DUF" |
+    tsv-uniq -f 1 |
+    tsv-sort -k2,2 \
+    > pfam_domain.tsv
+# DUF represents domain with unknown function
+
+wc -l < pfam_domain.tsv
+#216
+
+mkdir -p ~/data/Pseudomonas/DOMAINS/HMM
+
+cat pfam_domain.tsv |
+    parallel --col-sep "\t" --no-run-if-empty --linebuffer -k -j 4 '
+        >&2 echo {2}
+        curl -L https://pfam.xfam.org/family/{1}/hmm > DOMAINS/HMM/{2}.hmm
+    '
+
+find DOMAINS/HMM -type f -name "*.hmm" |
+    wc -l
+#216
+```
+
+### Scan every domain
+
+- The `E_VALUE` was adjusted to 1e-5 to capture all possible sequences
+
+```bash
+E_VALUE=1e-5
+
+cd /mnt/e/data/Pseudomonas/
+
+for domain in $(cat pfam_domain.tsv | cut -f 2 | sort); do
+    >&2 echo "==> domain [${domain}]"
+
+    if [ -e DOMAINS/${domain}.replace.tsv ]; then
+        continue;
+    fi
+
+    for ORDER in $(cat order.lst); do
+        >&2 echo "==> ORDER [${ORDER}]"
+
+        cat taxon/${ORDER} |
+            parallel --no-run-if-empty --linebuffer -k -j 8 "
+                gzip -dcf ASSEMBLY/{}/*_protein.faa.gz |
+                    hmmsearch -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw DOMAINS/HMM/${domain}.hmm - |
+                    grep '>>' |
+                    perl -nl -e '
+                        m{>>\s+(\S+)} or next;
+                        \$n = \$1;
+                        \$s = \$n;
+                        \$s =~ s/\.\d+//;
+                        printf qq{%s\t%s_%s\n}, \$n, {}, \$s;
+                    '
+            "
+    done \
+        > DOMAINS/${domain}.replace.tsv
+
+    >&2 echo
+done
+
+for domain in $(cat pfam_domain.tsv | cut -f 2 | sort); do
+    wc -l DOMAINS/${domain}.replace.tsv
+done |
+    datamash reverse -W |
+    tsv-filter --ge 2:2000 |
+    tsv-sort -k2,2nr |
+    (echo -e "Domain\tCount" && cat) |
+    mlr --itsv --omd cat
+```
+
+| Domain                              | Count |
+|-------------------------------------|-------|
+| DOMAINS/Epimerase.replace.tsv       | 40284 |
+| DOMAINS/Hydrolase.replace.tsv       | 35532 |
+| DOMAINS/HAD.replace.tsv             | 22725 |
+| DOMAINS/CBS.replace.tsv             | 21493 |
+| DOMAINS/GDP_Man_Dehyd.replace.tsv   | 21275 |
+| DOMAINS/HAD_2.replace.tsv           | 20959 |
+| DOMAINS/RmlD_sub_bind.replace.tsv   | 19014 |
+| DOMAINS/Glycos_transf_2.replace.tsv | 18461 |
+| DOMAINS/F420_oxidored.replace.tsv   | 15900 |
+| DOMAINS/Glyco_tranf_2_3.replace.tsv | 15734 |
+| DOMAINS/3Beta_HSD.replace.tsv       | 15218 |
+| DOMAINS/Hydrolase_3.replace.tsv     | 14970 |
+| DOMAINS/Hydrolase_like.replace.tsv  | 14372 |
+| DOMAINS/PfkB.replace.tsv            | 11621 |
+| DOMAINS/SIS.replace.tsv             | 11589 |
+| DOMAINS/AAA_33.replace.tsv          | 10988 |
+| DOMAINS/Glyco_trans_4_4.replace.tsv | 10216 |
+| DOMAINS/Alpha-amylase.replace.tsv   | 8387  |
+| DOMAINS/AP_endonuc_2.replace.tsv    | 7594  |
+| DOMAINS/ApbA.replace.tsv            | 7173  |
+| DOMAINS/Glyco_trans_2_3.replace.tsv | 7143  |
+| DOMAINS/Phos_pyr_kin.replace.tsv    | 6989  |
+| DOMAINS/CTP_transf_like.replace.tsv | 6561  |
+| DOMAINS/Polysacc_deac_1.replace.tsv | 6150  |
+| DOMAINS/FGGY_C.replace.tsv          | 6079  |
+| DOMAINS/PGM_PMM_I.replace.tsv       | 5353  |
+| DOMAINS/FGGY_N.replace.tsv          | 5288  |
+| DOMAINS/PGM_PMM_II.replace.tsv      | 5240  |
+| DOMAINS/PGM_PMM_III.replace.tsv     | 5234  |
+| DOMAINS/PGM_PMM_IV.replace.tsv      | 4831  |
+| DOMAINS/Glyco_transf_21.replace.tsv | 4791  |
+| DOMAINS/NAD_Gly3P_dh_N.replace.tsv  | 4291  |
+| DOMAINS/SKI.replace.tsv             | 3889  |
+| DOMAINS/QRPTase_C.replace.tsv       | 3824  |
+| DOMAINS/Glyco_hydro_3.replace.tsv   | 3698  |
+| DOMAINS/Aldose_epim.replace.tsv     | 3536  |
+| DOMAINS/CBM_48.replace.tsv          | 3407  |
+| DOMAINS/DctQ.replace.tsv            | 3160  |
+| DOMAINS/LamB_YcsF.replace.tsv       | 2784  |
+| DOMAINS/Glyco_transf_28.replace.tsv | 2446  |
+| DOMAINS/Glyco_tran_28_C.replace.tsv | 2409  |
+| DOMAINS/TAL_FSA.replace.tsv         | 2340  |
+| DOMAINS/F_bP_aldolase.replace.tsv   | 2239  |
+| DOMAINS/Ribul_P_3_epim.replace.tsv  | 2124  |
+| DOMAINS/Chitin_synth_2.replace.tsv  | 2029  |
+
+Check each domain, such as https://pfam.xfam.org/family/Epimerase. Some domains are not directly related to carbohydrate metabolism.
+
+- ATP, AMP, GDP, CTP, and NADP associated
+
+We cannot `interproscan` all `2420143` proteins
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+# All proteins appeared
+cat pfam_domain.tsv | cut -f 2 | sort |
+    tsv-filter --not-regex 1:'^AAA' |
+    tsv-filter --not-regex 1:'^GDP' |
+    tsv-filter --not-regex 1:'^CBS' |
+    tsv-filter --not-regex 1:'^CTP' |
+    tsv-filter --not-regex 1:'^HAD' |
+    tsv-filter --not-regex 1:'^F420' |
+    tsv-filter --not-regex 1:'^SKI' |
+    tsv-filter --not-regex 1:'^QRPTase' |
+    tsv-filter --not-regex 1:'^Epimerase' |
+    tsv-filter --not-regex 1:'^ApbA' |
+    tsv-filter --not-regex 1:'^3Beta_HSD' |
+    tsv-filter --not-regex 1:'^NAD_Gly3P' \
+    > domain.lst
+
+wc -l < domain.lst
+#202
+
+cat domain.lst |
+    parallel --no-run-if-empty --linebuffer -k -j 1 '
+        tsv-select -f 2 DOMAINS/{}.replace.tsv
+    ' |
+    sort -u \
+    > DOMAINS/domains.tsv
+# sort -u/--unique: with -c, check for strict ordering;
+# without -c, output only the first of an equal run
+# so this step actually sort and uniq them
+
+wc -l < DOMAINS/domains.tsv
+#200612
+
+faops size PROTEINS/all.uniq.fa | wc -l
+#3944568
+
+for domain in $(cat domain.lst); do
+    echo 1>&2 "==> domain [${domain}]"
+
+    tsv-join \
+        DOMAINS/domains.tsv \
+        --data-fields 1 \
+        -f <(
+            cat DOMAINS/${domain}.replace.tsv |
+                perl -nla -e 'print qq{$F[1]\tO}'
+        ) \
+        --key-fields 1 \
+        --append-fields 2 \
+        --write-all "" \
+        > DOMAINS/tmp.tsv
+
+    mv DOMAINS/tmp.tsv DOMAINS/domains.tsv
+done
+# This step actually write all domains to a matrix
+# Matrix raws represented domains, and cols meant states, which represented by "O" as existence
+# So all big tsv will give you the 
+
+datamash check < DOMAINS/domains.tsv
+#200612 lines, 203 fields
+
+# Add header line
+for domain in $(cat domain.lst); do
+    echo "${domain}"
+done |
+    (echo -e "#name" && cat) |
+    paste -s -d $'\t' - \
+    > DOMAINS/header.tsv
+
+
+cat DOMAINS/header.tsv DOMAINS/domains.tsv \
+    > tmp.tsv && mv tmp.tsv DOMAINS/domains.tsv
+
+tsv-join \
+    PROTEINS/all.info.tsv \
+    --data-fields 1 \
+    -f DOMAINS/domains.tsv \
+    --key-fields 1 \
+    --append-fields 2-203 |
+     keep-header -- sort -k1,1 \
+    > tmp.tsv && mv tmp.tsv DOMAINS/domains.tsv
+
+datamash check < DOMAINS/domains.tsv
+#200613 lines, 206 fields
+
+rm DOMAINS/header.tsv
 ```
