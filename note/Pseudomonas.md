@@ -6,15 +6,35 @@ Before getting start, the Taxonomy is very important for extracting those strain
 
 The basic taxonomy ranks are here:
 
-| Domain | Kingdom | Phylum | Class | Order | Family | Genus | Species |
-|--------|---------|--------|-------|-------|--------|-------|---------|
-| 域      | 界       | 门      | 纲     | 目     | 科      | 属     | 种       |
+| Domain  | Kingdom  | Phylum | Class   | Order  | Family   | Genus  | Species |
+|---------|----------|--------|---------|--------|----------|--------|---------|
+| Domains | Kingdoms | Phyla  | Classes | Orders | Families | Genera | Species |
+| 域       | 界        | 门      | 纲       | 目      | 科        | 属      | 种       |
+
+**Another tips**:
+
+[Back-formation](https://en.wiktionary.org/wiki/Appendix:Glossary#back-formation): A term formed by removing an apparent or real prefix or suffix from an older term; just shortens a word without changing.
+
+Taxon is back-formation from taxonomy. And its plural format is taxa.
+
+- **Markdown goal**:
+
+The genus Pseudomonas includes the conditionally pathogenic bacteria Pseudomonas aeruginosa, plant pathogens, plant beneficial bacteria, and soil bacteria. Microorganisms of Pseudomonas are extremely rich in metabolic diversity, and it is thought that this diversity also allows them to survive in a very wide range of ecological niches.
+
+The metabolism of carbohydrates is a fundamental biochemical process that ensures a continuous supply of energy to living cells.
+
+The biodegradation of RNA is also an important part of metabolism, which is accomplished by the degradosomes. However, the diversity of degradosomes in different environments has not been fully investigated.
+
+According to a recent [paper](https://journals.asm.org/doi/10.1128/mSystems.00543-20), there are some order-level changes in Gammaproteobacteria. We include both old and new orders.
+
+Old ones: Cellvibrionales, Oceanospirillales, Pseudomonadales, and Alteromonadales
+New ones: Moraxellales, Kangiellales, and Pseudomonadales
 
 ## Software
 
 - PPanGGOLiN
 
-Installation steps can be found [here](https://github.com/wang-q/dotfiles/blob/master/others.sh) 
+Installation steps can be found [here](https://github.com/wang-q/dotfiles/blob/master/others.sh)
 
 ```bash
 if grep -q -i PYTHON_39_PATH $HOME/.bashrc; then
@@ -28,7 +48,50 @@ else
 fi
 ```
 
+- `nwr`
+
+```bash
+brew install wang-q/tap/nwr # 0.5.5 or above
+brew install sqlite         # 3.34 or above
+
+nwr download
+nwr txdb
+
+nwr ardb
+nwr ardb --genbank
+```
+
+- Other packages
+
+If you already install those packages by `brew`, then nothing will happen.
+
+So better check them whether you have installed them or not.
+
+```bash
+brew install hmmer
+brew install brewsci/bio/muscle
+brew install brewsci/bio/fasttree
+brew install brewsci/bio/newick-utils
+brew install brewsci/bio/trimal
+
+brew install datamash
+brew install miller
+brew install wang-q/tap/tsv-utils
+
+brew install librsvg
+brew install jq
+brew install pup
+
+# dN/dS
+brew install brewsci/bio/clustal-w
+brew install brewsci/bio/paml
+
+cpanm Bio::Tools::Run::Alignment::Clustalw
+cpanm https://github.com/wang-q/Bio-Tools-Phylo-PAML.git
+```
+
 ## Strain info
+
 
 - Pseudomonas
 - Acinetobacter
@@ -113,6 +176,7 @@ Also check the order Pseudomonadales.
 
 - Old ones: Cellvibrionales, Oceanospirillales, Pseudomonadales, and Alteromonadales
 - New ones: Moraxellales, Kangiellales, and Pseudomonadales
+Here means that orders have been changed. See [above](#pseudomonas-hgt) for the paper offered.
   
 ```bash
 cd /mnt/e/data/Pseudomonas
