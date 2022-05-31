@@ -23,6 +23,8 @@ done
 
 ## TIGRFAM
 
+TIGRFAM is a database of protein family definitions. Each entry features a seed alignment of trusted representative sequences, a hidden Markov model (HMM) built from that alignment, cutoff scores that let automated annotation pipelines decide which proteins are members, and annotations for transfer onto member proteins. Most TIGRFAMs models are designated 'equivalog' (genes, or the proteins they encode, that are conserved in function since their last common ancestral sequence), meaning they assign a specific name to proteins conserved in function from a common ancestral sequence.
+
 ```bash
 mkdir -p ~/data/HMM/TIGRFAM
 cd ~/data/HMM/TIGRFAM
@@ -40,6 +42,9 @@ The protocol takes all the proteins in all the genomes under consideration and, 
 
 This systematic approach reveals 40 PhyEco marker candidates spanning the domains of bacteria and archaea.
 
+Ref.:
+1. [PLoS One, 2013, 8(10): e77033](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0077033)
+
 ```bash
 mkdir -p ~/data/HMM/scg40
 cd ~/data/HMM/scg40
@@ -55,6 +60,8 @@ Ref.:
 1. [Nature Microbiology, 2017, 2: 1533-1542](https://www.nature.com/articles/s41564-017-0012-7)
 2. [Nature Biotechnology, 2018, 36: 996-1004](https://www.nature.com/articles/nbt.4229)
 
+The article published on Nature Microbiology introduced their discovery that using genomes retrieved from metagenomics could find those 
+
 ```bash
 mkdir -p ~/data/HMM/bac120
 cd ~/data/HMM/bac120
@@ -63,6 +70,7 @@ cp ~/Scripts/withncbi/hmm/bac120.tsv ~/data/HMM/bac120/
 
 mkdir -p HMM
 
+# TIGR
 cat ~/Scripts/withncbi/hmm/bac120.tsv |
     sed '1d' |
     tsv-select -f 1 |
@@ -71,6 +79,7 @@ cat ~/Scripts/withncbi/hmm/bac120.tsv |
         tar --directory HMM -xzvf ../TIGRFAM/TIGRFAMs_14.0_HMM.tar.gz {}.HMM
     '
 
+# PF
 cat ~/Scripts/withncbi/hmm/bac120.tsv |
     sed '1d' |
     tsv-select -f 1 |
@@ -79,3 +88,7 @@ cat ~/Scripts/withncbi/hmm/bac120.tsv |
         curl -L http://pfam.xfam.org/family/{}/hmm > HMM/{}.HMM
     '
 ```
+
+TIGR represents the whole length protein.
+
+PF represents the short domain.
