@@ -92,6 +92,7 @@ cpanm https://github.com/wang-q/Bio-Tools-Phylo-PAML.git
 
 ## Strain info
 
+Genera:
 
 - Pseudomonas
 - Acinetobacter
@@ -176,6 +177,7 @@ Also check the order Pseudomonadales.
 
 - Old ones: Cellvibrionales, Oceanospirillales, Pseudomonadales, and Alteromonadales
 - New ones: Moraxellales, Kangiellales, and Pseudomonadales
+
 Here means that orders have been changed. See [above](#pseudomonas-hgt) for the paper offered.
   
 ```bash
@@ -242,7 +244,7 @@ cat species.count.tsv |
 # grep:
 # -i/--ignore-case: force grep to ignore word case (boo, Boo, BOO, ...)
 # -E/--extended-regexp: Treats pattern as an extended regular expression (ERE)
-# \b allows you to perform a “whole words only” search using a regular expression in the form of \bword\b
+# \b allows you to perform a "whole words only" search using a regular expression in the form of \bword\b
 
 # nwr:
 # nwr member:
@@ -252,7 +254,7 @@ cat species.count.tsv |
 # * If `--rank` is empty, the scientific name will be appended.
 
 # tsv-sort:
-# tsv-sort runs 'sort' using TAB as the field delimiter, all arguments are forwared to 'sort'
+# tsv-sort runs 'sort' using TAB as the field delimiter, all arguments are forwarded to 'sort'
 # -r/--reverse: reverse the result of comparisons
 # -n/--numeric-sort: compare according to string numerical value
 # -k/--key=KEYDEF: sort via a key; KEYDEF - pos1[,pos2]
@@ -343,7 +345,7 @@ Use these model organisms as outgroups.
 ```bash
 cd /mnt/e/data/Pseudomonas
 
-# other bacteria genura
+# other bacteria genera
 GENUS=$(
     nwr member Bacteria -r genus |
         grep -v -i "Candidatus " |
@@ -408,6 +410,14 @@ RefSeq:
 | 169963  | Listeria monocytogenes EGD-e                                     | Firmicutes                           |
 | 83332   | Mycobacterium tuberculosis H37Rv                                 | Actinobacteria                       |
 
+Actinobacteria, Firmicutes are phyla of Gram-positive bacteria.
+
+Proteobacteria(synonym Pseudomonadota) is a major phylum of Gram-negative bacteria.
+
+Chalamydiae are obligate intracellular parasites.
+
+
+
 ## Download all assemblies
 
 - Get all assemblies info
@@ -415,14 +425,17 @@ RefSeq:
 ```bash
 cd /mnt/e/data/Pseudomonas
 
+# Phylum
 # Pseudomonas aeruginosa PAO1 is in the reference list
+# All Refseqs from different phyla were contained as outgroup
 cat reference.tsv |
     tsv-select -H -f organism_name,species,genus,ftp_path,assembly_level \
     > raw.tsv
 cat raw.tsv | wc -l
 #16
 
-# Species with 2 or more genomes were retained
+# Genus (contained all Species)
+# Species with 2 or more genomes were retained from our target genera (changed order)
 SPECIES=$(
     cat species.count.tsv |
         tsv-filter -H --ge CHR:2 |
@@ -431,7 +444,10 @@ SPECIES=$(
         tr "\n" "," |
         sed 's/,$//'
 )
+# because of the CHR meaning numbers of complete genome/chromosome inside a species
+# so using CHR >= 2 to keep those species
 
+# Order
 # Pseudomonadales
 echo "
     SELECT
@@ -448,6 +464,7 @@ echo "
     tsv-filter --invert --str-eq 2:"Pseudomonas aeruginosa" --str-eq 5:"Chromosome" |
     tsv-filter --invert --str-eq 2:"Acinetobacter baumannii" --str-eq 5:"Chromosome" \
     >> raw.tsv
+# Other strains belong to Pseudomonadales order but not our target species
 
 cat raw.tsv | wc -l
 #1666
@@ -455,7 +472,9 @@ cat raw.tsv | wc -l
 # The SQLite || operator allows you to concatenate 2 or more strings together.
 # This step finally got all strains' assemblies from species.count.tsv
 
-# Also includes representative strains of Gammaproteobacteria.
+# Class
+# Also includes representative strains of Gammaproteobacteria (Class).
+# Representative strains were unequal to RefSeq
 # families not in our orders
 FAMILY=$(
     nwr member Gammaproteobacteria -r family |
@@ -510,8 +529,8 @@ cat raw.tsv |
         ' |
     keep-header -- sort -k3,3 -k1,1 \
     > Pseudomonas.assembly.tsv
-# A double dash (--) delimits the command, similar to how the pipe
-# operator (|) delimits commands. Examples:
+# %seen in perl means only print the first line that was seen in the input
+# A double dash (--) delimits the command in keep-header, similar to how the pipe operator (|) delimits commands. Examples:
 # keep-header file1.txt -- sort
 
 # find potential duplicate strains or assemblies
@@ -668,6 +687,12 @@ cat ASSEMBLY/Pseudomonas.assembly.collect.csv |
 #            curl -fsSL "https://www.ebi.ac.uk/biosamples/samples/{}" -o biosample/{}.json
         fi
     '
+# curl:
+# -f/--fail: fail fast with no output on HTTP errors
+# -s/--silent: silent mode
+# -S/--show-error: show error even when -s is used
+# -L/--location: follow redirects
+# This step will actually give you all the Biosample into a txt according to their SAMN number
 
 find biosample -name "SAM*.txt" | wc -l
 # 1957
@@ -692,6 +717,7 @@ cat attributes.lst |
     > Pseudomonas.biosample.tsv
 # tr: transform line to header splited by tab
 # sed: change the tab at the line end to return
+# make attributes.lst a line as header of Pseudomonas.biosample.tsv
 
 find biosample -name "SAM*.txt" |
     parallel --no-run-if-empty --linebuffer -k -j 1 '
@@ -727,6 +753,7 @@ find biosample -name "SAM*.txt" |
             '\''
     ' \
     >> Pseudomonas.biosample.tsv
+# 
 ```
 
 > ```perl
@@ -1344,7 +1371,7 @@ cat PROTEINS/all.uniq.fa |
 #3944568
 # which means the same accession annotated differently 
 
-# ribonuclease
+# ribonuclease was an example about how to grep proteins needed from the whole protein fasta
 cat PROTEINS/all.pro.fa |
     grep "ribonuclease" |
     grep -v "deoxyribonuclease" |
@@ -2137,6 +2164,8 @@ find DOMAINS/HMM -type f -name "*.hmm" |
 
 - The `E_VALUE` was adjusted to 1e-5 to capture all possible sequences
 
+Because in this part, the goal is to find any possible domain in all strains, so the E_VALUE should be adapted for this goal
+
 ```bash
 E_VALUE=1e-5
 
@@ -2322,4 +2351,112 @@ datamash check < DOMAINS/domains.tsv
 #200613 lines, 206 fields
 
 rm DOMAINS/header.tsv
+```
+
+### InterProScan
+
+The previous `hmmsearch` steps were done to narrow down the number of target proteins so that as few proteins as possible would be passed to the following IPS steps.
+
+InterProScan starts slowly, so dozens of proteins from one strain are submitted at once.
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+mkdir -p IPS
+
+# extract wanted protein sequences
+cat strains.lst |
+    parallel --no-run-if-empty --linebuffer -k -j 8 '
+        if [ $(({#} % 10)) -eq "0" ]; then
+            >&2 printf "."
+        fi
+
+        mkdir -p IPS/{}
+
+        cat PROTEINS/all.info.tsv |
+            tsv-filter --str-eq 2:{} |
+            cut -f 1 |
+            grep -Fx -f <(cut -f 1 DOMAINS/domains.tsv | grep "^{}") \
+            > IPS/{}/wanted.lst
+
+        faops some PROTEINS/all.replace.fa IPS/{}/wanted.lst IPS/{}/{}.fa
+    '
+# {#} means sequence number of job to run
+# So the meaning is every ten jobs finished will print a dot on screen
+# each strain will give out a fasta file
+
+cat strains.lst |
+    parallel --no-run-if-empty --linebuffer -k -j 4 '
+        cat IPS/{}/wanted.lst | wc -l
+    ' |
+    tsv-summarize --quantile 1:0.25,0.5,0.75
+#64      111     128
+
+# scan proteins of each strain with InterProScan
+# By default InterProScan uses 8 cpu cores
+mkdir -p split
+split -a 4 -l 30 -d strains.lst split/
+
+for f in $(find split -maxdepth 1 -type f -name "[0-9]*" | sort); do
+    >&2 echo "==> IPS [${f}]"
+    bsub -q mpi -n 24 -J "IPS-${f}" "
+        cat ${f} |
+            parallel --no-run-if-empty --linebuffer -k -j 6 '
+                if [ -e IPS/{}/{}.tsv ]; then
+                    >&2 echo {};
+                    exit;
+                fi
+
+                interproscan.sh --cpu 4 -dp -f tsv,json -i IPS/{}/{}.fa --output-file-base IPS/{}/{}
+            '
+        "
+done
+
+rm -fr split output.*
+
+find IPS -type f -name "*.json" | sort |
+    parallel --no-run-if-empty --linebuffer -k -j 8 '
+        if [ $(({#} % 10)) -eq "0" ]; then
+            >&2 printf "."
+        fi
+        pigz -p 3 {}
+    '
+
+# IPS family
+# Some proteins belong to more than one family. Only the best one is kept here
+cat strains.lst |
+    parallel --no-run-if-empty --linebuffer -k -j 8 '
+        if [ $(({#} % 10)) -eq "0" ]; then
+            >&2 printf "."
+        fi
+        gzip -dcf IPS/{}/{}.json.gz |
+            jq .results |
+            jq -r -c '\''
+                .[] |
+                .xref as $name |
+                .matches[] |
+                .signature.entry |
+                select(.type == "FAMILY") |
+                [$name[0].name, .accession, .description] |
+                @tsv
+            '\'' |
+            tsv-uniq -f 1
+    ' |
+    (echo -e "#name\tfamily\tdescription" && cat) \
+    > IPS/family.tsv
+
+tsv-join \
+    <(cut -f 1-4 DOMAINS/domains.tsv) \
+    --data-fields 1 \
+    -f IPS/family.tsv \
+    --key-fields 1 \
+    --append-fields 2-3 \
+    --write-all "" |
+    tsv-join \
+        --data-fields 1 \
+        -f DOMAINS/domains.tsv \
+        --key-fields 1 \
+        --append-fields 5-206 |
+     keep-header -- sort -k1,1 \
+    > IPS/predicts.tsv
 ```
