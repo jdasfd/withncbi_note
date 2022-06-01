@@ -90,6 +90,25 @@ cpanm Bio::Tools::Run::Alignment::Clustalw
 cpanm https://github.com/wang-q/Bio-Tools-Phylo-PAML.git
 ```
 
+- Tree viewing tools on windows
+
+```powershell
+winget install -s winget -e --id launch4j.launch4j
+winget install -s winget -e --id Oracle.JavaRuntimeEnvironment
+```
+
+```bash
+cd /mnt/d/download
+wget https://github.com/rambaut/figtree/releases/download/v1.4.4/FigTree_v1.4.4.tgz
+
+cd /mnt/d/Biosoftware
+tar -xzvf ../download/FigTree_v1.4.4.tgz
+```
+
+If you do not have JavaRuntimeEnvironment, the `FigTree` will not run properly.
+
+The `.jar` file in `./figtree_v1.4.4/lib` is the right one.
+
 ## Strain info
 
 Genera:
@@ -753,7 +772,8 @@ find biosample -name "SAM*.txt" |
             '\''
     ' \
     >> Pseudomonas.biosample.tsv
-# 
+# This script actually extract each sample attributes into a whole tsv
+# @keys are the target attributes in the headline
 ```
 
 > ```perl
@@ -771,6 +791,8 @@ find biosample -name "SAM*.txt" |
   - Pseudom_chl_GCF_001023535_1
   - Pseudom_syr_GCF_004006335_1
   - Pseudom_puti_GCF_003228315_1 and Pseudom_puti_GCF_020172705_1
+
+Those strains have been removed after [Raw phylogenetic tree by MinHash](#raw-phylogenetic-tree-by-minhash) completed. So actually this step was repeated several times until all abnormal strains removed properly. Those strains were not removed at the outset, but underwent repeated following validation from here to [Raw phylogenetic tree by MinHash](#raw-phylogenetic-tree-by-minhash).
 
 ```bash
 cd /mnt/e/data/Pseudomonas
@@ -823,7 +845,6 @@ tsv-join \
 wc -l ASSEMBLY/Pseudomonas.assembly*csv
 #1959 ASSEMBLY/Pseudomonas.assembly.collect.csv
 #1953 ASSEMBLY/Pseudomonas.assembly.pass.csv
-#3912 total
 ```
 
 - Order
@@ -866,6 +887,7 @@ cat order.lst |
     tsv-sort -k2,2 |
     (echo -e '#tax_id\torder\t#species\t#strains' && cat) |
     mlr --itsv --omd cat
+# nwr append will supply tax_id of every order
 ```
 
 | #tax_id | order                 | #species | #strains |
@@ -900,7 +922,7 @@ cat order.lst |
 ```bash
 cd /mnt/e/data/Pseudomonas
 
-# Group by order
+# Group by genus
 cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
     sed -e '1d' |
     tsv-select -d, -f 3 |
@@ -936,6 +958,10 @@ cat genus.lst |
     tsv-filter --ge 4:10 |
     (echo -e '#tax_id\tgenus\t#species\t#strains' && cat) |
     mlr --itsv --omd cat
+# only show the genus contained 10+ strains
+# tsv-sort -k2,2 | wc -l
+#171
+# totally 171 genera here
 ```
 
 | #tax_id | genus             | #species | #strains |
@@ -986,6 +1012,9 @@ cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
         printf "%s\t%s\t%d\t%s\t%s\t%s\t%s\n" {1} {2} {3} {4} {5} {6} {7}
     ' \
     > strains.taxon.tsv
+# nwr append [OPTIONS] <infiles> ...
+# <infiles> ...: Input filename. [stdin] for standard input
+# -c/--column <column>: The column where the IDs are located [default: 1]
 
 cat species.tmp | tsv-uniq > species.lst
 cat genus.tmp | tsv-uniq > genus.lst
@@ -1003,10 +1032,44 @@ for STRAIN in $(cat strains.lst); do
 done |
     tsv-uniq \
     > omit.lst
+
+# An example for compgen -G using
+compgen -G "ASSEMBLY/Acidif_thio_GCF_001705075_2/*_protein.faa.gz"
+#ASSEMBLY/Acidif_thio_GCF_001705075_2/GCF_001705075.2_ASM170507v2_protein.faa.gz
+
+cat omit.lst | wc -l
+#0
 # All OK
 
 rm *.tmp
 ```
+
+> **Explanation**:
+> 
+> - `compgen`
+> 
+> ```txt
+> Display possible completions depending on the options.
+> 
+> Intended to be used from within a shell function generating possible completions. If the optional WORD argument is supplied, matches against WORD are generated.
+> 
+> Exit Status:
+> Returns success unless an invalid option is supplied or an error occurs.
+> 
+> [-G globpat]: Glob pattern 
+> ```
+> 
+> Glob patterns specify sets of filenames with wildcard characters. Unix Bash shell command `mv *.txt textfiles` moves all files with names ending in `.txt` from the current dir to the `textfiles` dir.
+> 
+> Because we want to find if there is any file of protein seq or CDS seq from ASSEMBLY/${STRAIN}/, so we use `*_protein.faa.gz`.
+> 
+> `*` is a wildcard character, so use `compgen -G` could identify all possible files with `_protein.faa.gz`.
+> 
+> For the example showed above, the output is the file dirname/basename if exists.
+> 
+> So `!` used to take a test result or exit status opposite
+> 
+> The output of `compgen -G` is unnecessary, so `> /dev/null`
 
 ## NCBI taxonomy
 
@@ -1065,6 +1128,10 @@ rm *.tmp
 >   rsvg-convert [FLAGS] [OPTIONS] [FILE]...
 > ```
 
+The goal of this part was is to get the taxonomy tree from NCBI.
+
+This tree will supply you the taxonomy info of each species. The following tree can compare to this taxonomy tree and check those anomalously labeled species.
+
 ```bash
 mkdir -p /mnt/e/data/Pseudomonas/tree
 cd /mnt/e/data/Pseudomonas/tree
@@ -1082,6 +1149,8 @@ nw_display -s -b 'visibility:hidden' -w 600 -v 30 ncbi.nwk |
 ```
 
 ## Raw phylogenetic tree by MinHash
+
+Using genome to build a tree. It is pretty common that strains from the same species vary widely at the genomic level. The main reason is that the taxa of different strains are seperated by their morphological characteristics, which can hardly reflect their genomic features. So this step could help us find those abnormal strains from genomic level.
 
 ### MinHash grouping all strains
 
