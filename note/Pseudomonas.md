@@ -994,6 +994,8 @@ cd /mnt/e/data/Pseudomonas
 mkdir -p taxon
 
 rm taxon/* strains.lst *.tmp
+
+# this step will save all strains name into orders
 cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
     sed -e '1d' |
     tr "," "\t" |
@@ -1067,9 +1069,9 @@ rm *.tmp
 > 
 > For the example showed above, the output is the file dirname/basename if exists.
 > 
-> So `!` used to take a test result or exit status opposite
-> 
 > The output of `compgen -G` is unnecessary, so `> /dev/null`
+> 
+> And `!` used to take a test result or exit status opposite
 
 ## NCBI taxonomy
 
@@ -1295,6 +1297,7 @@ cd /mnt/e/data/Pseudomonas/tree
 nw_reroot ../mash/tree.nwk Bac_subti_subtilis_168 Sta_aure_aureus_NCTC_8325 |
     nw_order -c n - \
     > mash.reroot.newick
+# Two strains are from Firmicutes, and they are both G-positive
 
 # rank::col
 ARRAY=(
@@ -1377,6 +1380,12 @@ ppanggolin workflow --anno pangenome/Pseudom_aeru_1.gbff.list --cpu 8 -o pangeno
 
 ## Collect proteins
 
+> **The goal of this part**:
+> 
+> - First, the following steps are focused on proteins among all strains. So do some rough preliminary statistics on them.
+> - Second, merge all proteins to a file could reduce the complexity of the following steps in manipulating different kinds of proteins.
+
+
 - `all.pro.fa`
 
 Merge all proteins to a file and using accession to get uniq one.
@@ -1399,6 +1408,7 @@ find ASSEMBLY -type f -name "*_protein.faa.gz" |
 cat strains.lst |
     wc -l
 #1952
+# All strains after filtering
 
 for STRAIN in $(cat strains.lst); do
     gzip -dcf ASSEMBLY/${STRAIN}/*_protein.faa.gz
@@ -1493,6 +1503,7 @@ cat PROTEINS/all.replace.fa |
     grep "^>" |
     wc -l
 #8754303
+# the same to all.pro.fa, so all protein names were replaced by strain_accession(pro)
 
 (echo -e "#name\tstrain" && cat PROTEINS/all.strain.tsv)  \
     > temp &&
@@ -1565,6 +1576,8 @@ cat PROTEINS/all.info.tsv |
 
 ## Phylogenetics with 40 single-copy genes
 
+This part is using proteins inside 40 single-copy genes to generate a protein tree.
+
 ### Find correspoding proteins by `hmmsearch`
 
 - Download HMM models as described in `hmm/README.md`
@@ -1574,7 +1587,7 @@ HMM ([Hidden Markov Model](https://en.wikipedia.org/wiki/Hidden_Markov_model)) i
 
 As part of the definition, HMM requires that there be an observable process $Y$ whose outcomes are "influenced" by the outcomes of $X$ in a known way.
 
-Different transduction matrix would give out different multialignment results.
+Different transduction matrix would give out different multi-alignment results.
 
 > - hmmsearch
 > 
@@ -1604,11 +1617,31 @@ Different transduction matrix would give out different multialignment results.
 
 ```bash
 gzip -dcf ASSEMBLY/Acidif_thio_GCF_001705075_2/*_protein.faa.gz |
-    hmmsearch -E 1e-20 --domE 1e-20 --noali --notextw ~/data/HMM/scg40/bacteria_and_archaea_dir/BA00040.hmm - |
+    hmmsearch --noali --notextw ~/data/HMM/scg40/bacteria_and_archaea_dir/BA00004.hmm - |
     grep '>>' |
     perl -nl -e '/>>\s+(\S+)/ and print $1'
+#WP_083995962.1
+#WP_065970328.1
+#WP_065969050.1
+#WP_065969049.1
+#WP_065972062.1
+#WP_065971275.1
+#WP_228579725.1
+#WP_065971817.1
+
+gzip -dcf ASSEMBLY/Acidif_thio_GCF_001705075_2/*_protein.faa.gz |
+    hmmsearch -E 1e-20 --domE 1e-20 --noali --notextw ~/data/HMM/scg40/bacteria_and_archaea_dir/BA00004.hmm - |
+    grep '>>' |
+    perl -nl -e '/>>\s+(\S+)/ and print $1'
+#WP_083995962.1
+#WP_065970328.1
+#WP_065969050.1
+#WP_065969049.1
+#WP_065972062.1
+#WP_065971275.1
 
 # the example showed above was extracted domain accession from the hmmsearch results
+# meanwhile, strict E-value could filter and then leave less proteins more close to markers.  
 ```
 
 ```bash
@@ -1637,9 +1670,40 @@ for marker in BA000{01..40}; do
 
     echo
 done
+# will get accessions of protein and strains from an order into a replace.tsv
 ```
 
 ### Create a valid marker gene list
+
+```bash
+for marker in BA000{01..40}; do
+    >&2 echo "==> marker [${marker}]"
+    
+    for ORDER in $(cat order.lst); do
+        if [ -s PROTEINS/${marker}/${ORDER}.replace.tsv ]; then
+            copy=$(cat PROTEINS/${marker}/${ORDER}.replace.tsv |
+                      tsv-summarize --g 2 --count |
+                      tsv-summarize --g 2 --count |
+                      sort -r -nk 2,2 |
+                      head -n 1 |
+                      tsv-select -f 1
+                  )
+
+            echo "==> ORDER [${ORDER}] copy=${copy}"
+
+            cat PROTEINS/${marker}/${ORDER}.replace.tsv |
+                tsv-summarize -g 2 --count |
+                tsv-filter --ne 2:${copy}
+        else
+            echo "==> ORDER [${ORDER}] no copy"
+        fi
+    done
+
+    echo
+done
+```
+
+After running the command above, those marker genes are indeed unstable among species. We remove them afterwards.
 
 - `hmmsearch` may identify more than one copy for some marker genes
   - BA00004: translation initiation factor EF-2
@@ -1805,6 +1869,8 @@ done \
     > PROTEINS/scg40.aln.fas
 
 fasops concat PROTEINS/scg40.aln.fas strains.lst -o PROTEINS/scg40.aln.fa
+# fasops concat: Concatenate sequence pieces in blocked fasta files.
+# so actually sequences from 40 maker genes will be concatenated into one 
 
 # Trim poorly aligned regions with `TrimAl`
 trimal -in PROTEINS/scg40.aln.fa -out PROTEINS/scg40.trim.fa -automated1
@@ -1851,6 +1917,8 @@ nw_display -s -b 'visibility:hidden' -w 600 -v 30 scg40.species.newick |
 ```
 
 ## Phlogenetics with bac120
+
+Bac120 was introduced in [hmm.md](hmm.md). This bac120 contained whole length proteins from TIGRFAM database and some domains. Now, this method has gradually occupied the mainstream in the field of generating phylogenetic tree from proteins. The following steps are relied more on results from bac120.
 
 ### Find corresponding proteins by `hmmsearch`
 
@@ -2025,6 +2093,8 @@ nw_display -s -b 'visibility:hidden' -w 600 -v 30 bac120.species.newick |
     rsvg-convert -o Pseudomonas.bac120.png
 ```
 
+After all the different trees, we could compare 3 different trees.
+
 ## Protein domains and families
 
 ### Proteins in Pseudomonas strains
@@ -2047,7 +2117,7 @@ nw_display -s -b 'visibility:hidden' -w 600 -v 30 bac120.species.newick |
   - 117 - Pseudomonas entomophila L48
   - 109 - Pseudomonas aeruginosa UCBPP-PA14
 
-- The `E_VALUE` was adjusted to 1e-5 to capture all possible sequences
+- The `E_VALUE` was adjusted to 1e-5 to capture all possible sequences. Because in this part, the goal is to find any possible domain in all strains, so the E_VALUE should be adapted for this goal. Greater value in E_VALUE will give us more domains.
 
 ```bash
 cd /mnt/e/data/Pseudomonas/
@@ -2153,7 +2223,7 @@ wc -l < DOMAINS/ref_strain/pfam_domain.tsv
 > 
 > ```txt
 > Usage:
-> pup [flags] [selectors] [optional display function]
+> cat index.html | pup [flags] '[selectors] [optional display function]'
 > ```
 > 
 > `tldr pup`
@@ -2232,8 +2302,6 @@ find DOMAINS/HMM -type f -name "*.hmm" |
 ### Scan every domain
 
 - The `E_VALUE` was adjusted to 1e-5 to capture all possible sequences
-
-Because in this part, the goal is to find any possible domain in all strains, so the E_VALUE should be adapted for this goal
 
 ```bash
 E_VALUE=1e-5
