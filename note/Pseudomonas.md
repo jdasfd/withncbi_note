@@ -2703,3 +2703,66 @@ InterPro provides functional analysis of proteins by classifying them into famil
 I currently know nothing about JSON, so the `jq` here could only be inferred from results.
 
 `IPS/predicts.tsv` contains all proteins predicted by `InterProScan` with protein family name and description joined into `DOMAINS/domains.tsv`
+
+## Search for gene families with uneven members
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+cat IPS/predicts.tsv |
+    tsv-filter -H --not-empty description |
+    tsv-summarize -H -g strain,family,description --count |
+    keep-header -- tsv-sort -k4,4n |
+    tsv-summarize -H -g family,description --values 4 |
+    keep-header -- tsv-sort -k2,2 |
+    tsv-filter -H --str-in-fld 3:'|' |
+    tr '|' '/' |
+    keep-header -- perl -nla -F"\t" -e '
+        my %seen;
+        my @values = split "/", $F[2];
+        next if scalar @values < 200; # The family is not widely distributed
+        for my $v (@values) {
+            $seen{$v}++;
+        }
+        next if keys %seen >= 5; # Too much variation in family members
+        my @valid = grep { $seen{$_} > 50 } keys %seen;
+        next if scalar @valid < 2; # At least 2 categories
+        print join "\t", $F[0], $F[1], join "/", sort keys %seen;
+    ' |
+    tsv-filter -H --istr-not-in-fld 2:"probable" |
+    tsv-filter -H --istr-not-in-fld 2:"putative" |
+    tsv-filter -H --istr-not-in-fld 2:"Uncharacterised" \
+    > variety.tsv
+# find those proteins neither too common among all strains (too conservative)
+# nor too variable in pro numbers among all strains (too diverse)
+
+cat variety.tsv |
+    mlr --itsv --omd cat
+```
+
+| family    | description                                               | count_values |
+|-----------|-----------------------------------------------------------|--------------|
+| IPR008183 | Aldose 1-/Glucose-6-phosphate 1-epimerase                 | 1/2/3/4      |
+| IPR005841 | Alpha-D-phosphohexomutase superfamily                     | 1/2/3/4      |
+| IPR014438 | Glucan biosynthesis protein MdoG/MdoD                     | 1/2/3/4      |
+| IPR025532 | Glucose-6-phosphate 1-epimerase                           | 1/2          |
+| IPR005999 | Glycerol kinase                                           | 1/2          |
+| IPR011837 | Glycogen debranching enzyme, GlgX type                    | 1/2/3        |
+| IPR000322 | Glycoside hydrolase family 31                             | 1/2/3/4      |
+| IPR000811 | Glycosyl transferase, family 35                           | 1/2/3/4      |
+| IPR035461 | GmhA/DiaA                                                 | 1/2          |
+| IPR026040 | Hydroxypyruvate isomerase-like                            | 1/2/3/4      |
+| IPR005501 | LamB/YcsF/PxpA-like                                       | 1/2/3/4      |
+| IPR006415 | P-type ATPase, subfamily IIIB                             | 1/2/3        |
+| IPR037950 | Peptidoglycan deacetylase PgdA-like                       | 1/2/3/4      |
+| IPR004800 | Phosphosugar isomerase, KdsD/KpsF-type                    | 1/2/3        |
+| IPR023853 | Poly-beta-1,6 N-acetyl-D-glucosamine synthase PgaC/IcaA   | 1/2          |
+| IPR023854 | Poly-beta-1,6-N-acetyl-D-glucosamine N-deacetylase PgaB   | 1/2/3        |
+| IPR004625 | Pyridoxine kinase                                         | 1/2/3        |
+| IPR002347 | Short-chain dehydrogenase/reductase SDR                   | 1/2/3        |
+| IPR017583 | Tagatose/fructose phosphokinase                           | 1/2/3        |
+| IPR004730 | Transaldolase type 1                                      | 1/2/3/4      |
+| IPR001585 | Transaldolase/Fructose-6-phosphate aldolase               | 1/2/3/4      |
+| IPR005886 | UDP-glucose 4-epimerase                                   | 1/2/3        |
+| IPR005593 | Xylulose 5-phosphate/Fructose 6-phosphate phosphoketolase | 1/2/3        |
+| IPR005888 | dTDP-glucose 4,6-dehydratase                              | 1/2/3        |
