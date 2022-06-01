@@ -851,6 +851,10 @@ tsv-join \
 wc -l ASSEMBLY/Pseudomonas.assembly*csv
 #1959 ASSEMBLY/Pseudomonas.assembly.collect.csv
 #1953 ASSEMBLY/Pseudomonas.assembly.pass.csv
+
+# number of strains
+cat ASSEMBLY/Pseudomonas.assembly.pass.csv | sed '1d' | wc -l
+#1952
 ```
 
 - Order
@@ -2312,6 +2316,8 @@ find DOMAINS/HMM -type f -name "*.hmm" |
 
 Basically, using 2 different methods, we got totally 216 domains from both PFAM and Pseudomonas GO term after removed those domains whose function have been unknown yet.
 
+`pfam_domain.tsv` included all domains that related to carbohydrate metabolic process.
+
 ### Scan every domain
 
 Main goal is to find those domains from our strains by `hmmsearch`.
@@ -2352,6 +2358,11 @@ for domain in $(cat pfam_domain.tsv | cut -f 2 | sort); do
     >&2 echo
 done
 
+ls DOMAINS/*.replace.tsv | wc -l
+#216
+# now each DOMAINS/${domain}.replace.tsv has all proteins info that has the ${domain}
+# all 216 domains have their own tsv contained proteins from all strains
+
 for domain in $(cat pfam_domain.tsv | cut -f 2 | sort); do
     wc -l DOMAINS/${domain}.replace.tsv
 done |
@@ -2362,6 +2373,8 @@ done |
     mlr --itsv --omd cat
 # datamash reverse: reverse cols number, which means col-end -> col-start
 # -W/--whitespace: use whitespace (one or more spaces and/or tabs) for field delimiters
+# this step could give you each domains count
+# a strain could have many proteins contained a very specific domain
 ```
 
 | Domain                              | Count |
@@ -2430,7 +2443,7 @@ Check each domain, such as https://pfam.xfam.org/family/Epimerase. Some domains 
   - 3Beta_HSD: 3-beta-hydroxysteroid dehydrogenase 羟基化类固醇脱氢酶
   - NAD_Gly3P_dh_N: Glycerol-3-phosphate dehydrogenase 甘油-3-磷酸脱氢酶 - glycerol 3-phosphate -> dihydroxyacetone phosphate (3-磷酸甘油变为二羟丙酮磷酸)
 
-We cannot `interproscan` all `2420143` proteins
+We cannot `interproscan` all `200612` proteins at once.
 
 ```bash
 cd /mnt/e/data/Pseudomonas
@@ -2464,9 +2477,11 @@ cat domain.lst |
 # without -c, output only the first of an equal run
 # so this step actually sort and uniq them
 
+# proteins have domains
 wc -l < DOMAINS/domains.tsv
 #200612
 
+# all proteins uniq among all strains
 faops size PROTEINS/all.uniq.fa | wc -l
 #3944568
 
@@ -2488,11 +2503,11 @@ for domain in $(cat domain.lst); do
     mv DOMAINS/tmp.tsv DOMAINS/domains.tsv
 done
 # This step actually write all domains to a matrix
-# Matrix raws represented domains, and cols meant states, which represented by "O" as existence
-# So all big tsv will give you the 
+# Matrix raws represented domains, and cols meant proteins have domains
+# "O" represented this protein existing that domain 
 
 datamash check < DOMAINS/domains.tsv
-#200612 lines, 203 fields
+#200612 lines, 203 fields, one more for proteins name fields
 
 # Add header line
 for domain in $(cat domain.lst); do
@@ -2517,6 +2532,7 @@ tsv-join \
 
 datamash check < DOMAINS/domains.tsv
 #200613 lines, 206 fields
+# another 3 fields added: stain, size and annotation
 
 rm DOMAINS/header.tsv
 ```
@@ -2527,12 +2543,48 @@ The previous `hmmsearch` steps were done to narrow down the number of target pro
 
 InterProScan starts slowly, so dozens of proteins from one strain are submitted at once.
 
+> - `interproscan.sh`
+> 
+> ```txt
+> Options:
+> -cpu/--cpu <CPU>: Optional, number of cores for interproscan
+> -dp/--disable-precalc: Optional. Disables use of the precalculated match
+>     lookup service.All match calculations will be run locally.
+> -f/--formats <OUTPUT-FORMATS>: Optional, case-insensitive, comma separated
+>     list of output formats. Supported formats are TSV, XML, JSON, GFF3, HTML and SVG.
+> -i/--input <INPUT-FILE-PATH>: Optional, path to fasta file that should be
+>     loaded on Master startup.
+> -b/--output-file-base <OUTPUT-FILE-BASE>: Optional, base output filename (relative
+>     or absolute path).
+> ```
+> 
+> - `jq`
+> 
+> ```txt
+> commandline JSON processor [version 1.6]
+> 
+> Usage:
+> jq [options] <jq filter> [file...]
+> jq [options] --args <jq filter> [strings...]
+> jq [options] --jsonargs <jq filter> [JSON_TEXTS...]
+> 
+> jq is a tool for processing JSON inputs, aapplying the given filter to
+> its JSON text inputs and producing the filter's results as JSON on
+> standard output.
+> 
+> Options:
+> -c: compact instead of pretty-printed output
+> -r: output raw strings, not JSON texts
+> ```
+
+The goal is to use seq of proteins contained domains to search in each strain genome for similar ones.
+
 ```bash
 cd /mnt/e/data/Pseudomonas
 
 mkdir -p IPS
 
-# extract wanted protein sequences
+# extract wanted protein sequences in every strain
 cat strains.lst |
     parallel --no-run-if-empty --linebuffer -k -j 8 '
         if [ $(({#} % 10)) -eq "0" ]; then
@@ -2552,9 +2604,11 @@ cat strains.lst |
 # {#} means sequence number of job to run
 # So the meaning is every ten jobs finished will print a dot on screen
 # each strain will give out a fasta file
+# 1953 strains pass and be used for protein analysis
 
-ls IPS | wc -l
+find IPS -maxdepth 1 -mindepth 1 -type d | wc -l
 #1952
+# just equal to the number of strains
 
 cat strains.lst |
     parallel --no-run-if-empty --linebuffer -k -j 4 '
@@ -2562,12 +2616,19 @@ cat strains.lst |
     ' |
     tsv-summarize --quantile 1:0.25,0.5,0.75
 #64      111     128
+# totally 202 domains in domain.lst, and tsv-summarize could tell us quartile of domains
 
 # scan proteins of each strain with InterProScan
-# By default InterProScan uses 8 cpu cores
+# By default InterProScan uses 8 cpu cores 
 mkdir -p split
 split -a 4 -l 30 -d strains.lst split/
+# split: output pieces of FILE to PREFIXaa, PREFIXab
+# -a/--suffix-length=N: generate suffixes of length N (default 2).
+# -d: use numeric suffixes starting at 0, not alphabetic 
+# -a 4 -d: means the output file will have 4 suffix length, which means 0000, 0001...
+# -l/--lines=NUMBER: put NUMBER lines/records per output file
 
+# using protein sequences with domains to scan similar one
 for f in $(find split -maxdepth 1 -type f -name "[0-9]*" | sort); do
     >&2 echo "==> IPS [${f}]"
     bsub -q mpi -n 24 -J "IPS-${f}" "
@@ -2592,6 +2653,7 @@ find IPS -type f -name "*.json" | sort |
         fi
         pigz -p 3 {}
     '
+# -p/--processes n: allow up to n compression threads (default is the number of online processors) 
 
 # IPS family
 # Some proteins belong to more than one family. Only the best one is kept here
@@ -2616,6 +2678,10 @@ cat strains.lst |
     (echo -e "#name\tfamily\tdescription" && cat) \
     > IPS/family.tsv
 
+wc -l < IPS/family.tsv
+#135966
+# proteins scanned by the method above
+
 tsv-join \
     <(cut -f 1-4 DOMAINS/domains.tsv) \
     --data-fields 1 \
@@ -2631,3 +2697,9 @@ tsv-join \
      keep-header -- sort -k1,1 \
     > IPS/predicts.tsv
 ```
+
+InterPro provides functional analysis of proteins by classifying them into families and predicting domains and important sites. To classify proteins in this way, InterPro uses predictive models, known as signatures, provided by several different databases (referred to as member databases) that make up the InterPro consortium.
+
+I currently know nothing about JSON, so the `jq` here could only be inferred from results.
+
+`IPS/predicts.tsv` contains all proteins predicted by `InterProScan` with protein family name and description joined into `DOMAINS/domains.tsv`
