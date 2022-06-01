@@ -2119,6 +2119,8 @@ After all the different trees, we could compare 3 different trees.
 
 - The `E_VALUE` was adjusted to 1e-5 to capture all possible sequences. Because in this part, the goal is to find any possible domain in all strains, so the E_VALUE should be adapted for this goal. Greater value in E_VALUE will give us more domains.
 
+- Using `GO` to extract their pro_seqs from the gff of ref_strain.
+
 ```bash
 cd /mnt/e/data/Pseudomonas/
 mkdir -p /mnt/e/data/Pseudomonas/DOMAINS/ref_strain
@@ -2148,7 +2150,7 @@ gzip -dcf \
     tsv-filter --str-eq 3:gene |
     perl -nl -e 'print $1 if /\bID=(.+?);/i' \
     > DOMAINS/ref_strain/gene.lst
-# grep 
+# grep
 # -w/--word-regexp: match only whole words
 # -F/--fixed-strings: PATTERNS are strings
 
@@ -2208,10 +2210,13 @@ cat ~/data/HMM/PFAM/Pfam-A.hmm.dat |
     tsv-select -f 2,1 \
     > DOMAINS/ref_strain/pfam_domain.tsv
 # grep -A/--after-context=NUM: print NUM lines of trailing context
+# meaning the output contained grep and more 2 lines after
 
 wc -l < DOMAINS/ref_strain/pfam_domain.tsv
 #107
 ```
+
+The results contain all pfam_domain after scanning by `hmmscan`, and those 107 domains are all related to `GO:0005975` carbohydrate metabolic process. All domains are generated from ref_strain.
 
 ### Scrap PFAM domains
 
@@ -2299,7 +2304,11 @@ find DOMAINS/HMM -type f -name "*.hmm" |
 #216
 ```
 
+Basically, using 2 different methods, we got totally 216 domains from both PFAM and Pseudomonas GO term after removed those domains whose function have been unknown yet.
+
 ### Scan every domain
+
+Main goal is to find those domains from our strains by `hmmsearch`.
 
 - The `E_VALUE` was adjusted to 1e-5 to capture all possible sequences
 
@@ -2345,6 +2354,8 @@ done |
     tsv-sort -k2,2nr |
     (echo -e "Domain\tCount" && cat) |
     mlr --itsv --omd cat
+# datamash reverse: reverse cols number, which means col-end -> col-start
+# -W/--whitespace: use whitespace (one or more spaces and/or tabs) for field delimiters
 ```
 
 | Domain                              | Count |
