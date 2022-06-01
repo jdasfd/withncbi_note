@@ -2766,3 +2766,49 @@ cat variety.tsv |
 | IPR005886 | UDP-glucose 4-epimerase                                   | 1/2/3        |
 | IPR005593 | Xylulose 5-phosphate/Fructose 6-phosphate phosphoketolase | 1/2/3        |
 | IPR005888 | dTDP-glucose 4,6-dehydratase                              | 1/2/3        |
+
+### Within species
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+for f in $(cat variety.tsv | tsv-select -f 1 | sed '1d' | sort); do
+    cat IPS/predicts.tsv |
+        tsv-select -f 1-3,5,6 |
+        tsv-filter -H --str-eq family:"${f}" |
+        tsv-join -d 2 \
+            -f strains.taxon.tsv -k 1 \
+            --append-fields 4 |
+        tsv-summarize -g 6,2 --count |
+        keep-header -- tsv-sort -k3,3n |
+        tsv-summarize -g 1 --unique-values 3 |
+        tsv-filter --str-in-fld 2:'|' |
+        tsv-sort -k1,1 |
+        tr '|' '/' \
+        > tmp.tsv
+
+    COUNT=$(cat tmp.tsv | wc -l)
+    HAS_T=$(cat tmp.tsv | grep -E "aeruginosa|fluorescens|putida|syringae" | wc -l)
+    HAS_ENOUGH=$(
+        cat IPS/predicts.tsv |
+            tsv-select -f 1-3,5,6 |
+            tsv-filter -H --str-eq family:"${f}" |
+            tsv-join -d 2 \
+                -f strains.taxon.tsv -k 1 \
+                --append-fields 4 |
+            tsv-summarize -g 6,2 --count |
+            tsv-filter --ge 3:2 |
+            tsv-summarize -g 1 --count |
+            tsv-filter --ge 2:5 |
+            wc -l
+    )
+    if [[ ${COUNT} -ge "1" && ${COUNT} -le "10" && ${HAS_T} -ge "1" && ${HAS_ENOUGH} -ge "1" ]]; then
+        cat tmp.tsv |
+            sed "1 s/^/${f}\\t/" |
+            sed "2,$ s/^/\\t/"
+    fi
+
+done |
+    (echo -e "#family\tspecies\tcount" && cat) |
+    mlr --itsv --omd cat
+```
