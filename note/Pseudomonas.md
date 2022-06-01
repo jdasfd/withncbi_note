@@ -32,9 +32,11 @@ New ones: Moraxellales, Kangiellales, and Pseudomonadales
 
 ## Software
 
+`PPanGGOLiN` and `InterProScan` installation steps can be found [here](https://github.com/wang-q/dotfiles/blob/master/others.sh)
+
 - PPanGGOLiN
 
-Installation steps can be found [here](https://github.com/wang-q/dotfiles/blob/master/others.sh)
+Need python_3.9
 
 ```bash
 if grep -q -i PYTHON_39_PATH $HOME/.bashrc; then
@@ -47,6 +49,10 @@ else
     echo ${PYTHON_39_PATH} >> $HOME/.bashrc
 fi
 ```
+
+- InterProScan
+
+Go check [others.sh](https://github.com/wang-q/dotfiles/blob/master/others.sh)
 
 - `nwr`
 
@@ -2409,6 +2415,20 @@ done |
 Check each domain, such as https://pfam.xfam.org/family/Epimerase. Some domains are not directly related to carbohydrate metabolism.
 
 - ATP, AMP, GDP, CTP, and NADP associated
+  - AAA_3
+  - GDP_Man_Dehyd
+  - CBS*
+  - CTP_transf_like
+- Binding to other small molecules
+  - HAD* : enzymatic cleavage by nucleophilic substitution of carbon–halogen bonds (C–halogen) 卤素
+  - F420: NADP oxidoreductase coenzyme F420-dependent
+  - SKI: Shikimate kinase 莽草酸激酶 - ATP + shikimate <-> ADP + shikimate 3-phosphate
+  - QPRTase_C: Quinolinate phosphoribosyl transferase, C-terminal domain 喹啉酸磷酸核糖转移酶
+- Oxidoreductases
+  - Epimerase: NADH dehydrogenase (ubiquinone) NADH脱氢酶泛醌 (辅酶Q)
+  - ApbA: Ketopantoate reductase PanE/ApbA 酮戊酸还原酶 - redution alpha-ketopantoate -> D-(-)-pantoate (降解alpha-酮戊二酸为D-(-)-泛酸)
+  - 3Beta_HSD: 3-beta-hydroxysteroid dehydrogenase 羟基化类固醇脱氢酶
+  - NAD_Gly3P_dh_N: Glycerol-3-phosphate dehydrogenase 甘油-3-磷酸脱氢酶 - glycerol 3-phosphate -> dihydroxyacetone phosphate (3-磷酸甘油变为二羟丙酮磷酸)
 
 We cannot `interproscan` all `2420143` proteins
 
@@ -2532,6 +2552,9 @@ cat strains.lst |
 # {#} means sequence number of job to run
 # So the meaning is every ten jobs finished will print a dot on screen
 # each strain will give out a fasta file
+
+ls IPS | wc -l
+#1952
 
 cat strains.lst |
     parallel --no-run-if-empty --linebuffer -k -j 4 '
