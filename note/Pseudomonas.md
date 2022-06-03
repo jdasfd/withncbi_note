@@ -2846,3 +2846,36 @@ done |
 | IPR037950 | Pseudomonas brassicacearum | 1/3   |
 |           | Pseudomonas chlororaphis   | 1/2/3 |
 |           | Pseudomonas fluorescens    | 1/2/3 |
+
+### Among species
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+for f in $(cat variety.tsv | tsv-select -f 1 | sed '1d' | sort); do
+    cat IPS/predicts.tsv |
+        tsv-select -f 1-3,5,6 |
+        tsv-filter -H --str-eq family:"${f}" |
+        tsv-join -d 2 \
+            -f strains.taxon.tsv -k 1 \
+            --append-fields 4 |
+        tsv-summarize -g 6,2 --count |
+        keep-header -- tsv-sort -k3,3n |
+        tsv-summarize -g 1 --unique-values 3 |
+        tsv-filter --str-not-in-fld 2:'|' |
+        tsv-sort -k1,1 |
+        tr '|' '/' \
+        > tmp.tsv
+
+    IS_1=$(cat tmp.tsv | tsv-filter --eq 2:1 | wc -l)
+    IS_N=$(cat tmp.tsv | tsv-filter --ne 2:1 | wc -l)
+    HAS_T=$(cat tmp.tsv | tsv-filter --ne 2:1 | grep -E "aeruginosa|chlororaphis|fluorescens|protegens|putida|syringae" | wc -l)
+
+    if [[ ${IS_1} -ge "20" && ${IS_N} -ge "1" && ${IS_N} -le "10" && ${HAS_T} -ge "1" ]]; then
+        printf "%s\t%d\t%d\t%d\n" $f $IS_1 $IS_N $HAS_T
+        cat tmp.tsv | tsv-filter --ne 2:1 | grep -E "aeruginosa|chlororaphis|fluorescens|protegens|putida|syringae"
+    fi
+done
+```
+
+The goal is to find proteins with more than a copy within species (Pseudomonas), and better a copy among other species (not Pseudomonas).
