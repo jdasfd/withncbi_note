@@ -2812,3 +2812,37 @@ done |
     (echo -e "#family\tspecies\tcount" && cat) |
     mlr --itsv --omd cat
 ```
+
+| #family   | species                    | count |
+|-----------|----------------------------|-------|
+| IPR000811 | Pseudomonas balearica      | 1/2   |
+|           | Pseudomonas fluorescens    | 1/2   |
+|           | Pseudomonas mandelii       | 1/2   |
+|           | Pseudomonas stutzeri       | 1/2   |
+|           | Pseudomonas synxantha      | 1/2   |
+|           | Pseudomonas veronii        | 1/2   |
+| IPR004730 | Alteromonas macleodii      | 1/2   |
+|           | Alteromonas mediterranea   | 1/2   |
+|           | Halomonas meridiana        | 1/2   |
+|           | Halomonas titanicae        | 1/2/3 |
+|           | Pseudomonas azotoformans   | 1/2   |
+|           | Pseudomonas fluorescens    | 1/2   |
+|           | Pseudomonas synxantha      | 1/2   |
+| IPR004800 | Alteromonas macleodii      | 1/2   |
+|           | Halomonas piezotolerans    | 1/2   |
+|           | Pseudomonas atacamensis    | 1/2   |
+|           | Pseudomonas citronellolis  | 1/2   |
+|           | Pseudomonas fluorescens    | 1/2   |
+|           | Pseudomonas fragi          | 1/2   |
+|           | Pseudomonas putida         | 1/2   |
+|           | Thalassolituus oleivorans  | 1/2   |
+| IPR005593 | Pseudomonas aeruginosa     | 1/2   |
+|           | Pseudomonas veronii        | 1/2   |
+| IPR005999 | Alteromonas australica     | 1/2   |
+|           | Pseudomonas aeruginosa     | 1/2   |
+| IPR035461 | Alteromonas mediterranea   | 1/2   |
+|           | Pseudomonas aeruginosa     | 1/2   |
+|           | Pseudomonas lalkuanensis   | 1/2   |
+| IPR037950 | Pseudomonas brassicacearum | 1/3   |
+|           | Pseudomonas chlororaphis   | 1/2/3 |
+|           | Pseudomonas fluorescens    | 1/2/3 |
