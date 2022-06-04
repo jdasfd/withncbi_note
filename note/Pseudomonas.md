@@ -3013,3 +3013,51 @@ for f in GlpK FGGY FGGY_N_C ; do
 
 done
 ```
+
+### IPR004800 - Phosphosugar isomerase, KdsD/KpsF-type
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+cat IPS/predicts.tsv |
+    tsv-filter -H --str-eq family:IPR004800 |
+    tsv-summarize -H -g annotation --count
+#annotation      count
+#KpsF/GutQ family sugar-phosphate isomerase      1149
+#D-arabinose 5-phosphate isomerase       8
+#arabinose-5-phosphate isomerase 2
+#carbohydrate isomerase  1
+#D-arabinose 5-phosphate isomerase GutQ  1
+#D-arabinose 5-phosphate isomerase KdsD  1
+#arabinose-5-phosphate isomerase KdsD    389
+#putative polysialic acid capsule expression protein     1
+#hypothetical protein SF2731     1
+
+cat IPS/predicts.tsv |
+    tsv-filter -H --str-eq family:IPR004800 |
+    tsv-summarize -H -g size --count |
+    keep-header -- tsv-sort -k1,1n |
+    tsv-filter -H --ge count:10
+#size    count
+#310     17
+#315     13
+#323     40
+#324     452
+#325     528
+#326     422
+#328     18
+#339     16
+
+cat IPS/predicts.tsv |
+    tsv-filter -H --str-eq family:IPR004800 |
+    tsv-select -f 1-6 |
+    tsv-join -d 2 \
+        -f strains.taxon.tsv -k 1 \
+        --append-fields 4 |
+    tsv-filter --or --str-eq 7:"Pseudomonas fluorescens" --str-eq 7:"Pseudomonas putida" |
+    tsv-summarize -g 7,2 --count |
+    tsv-filter --gt 3:1 |
+    tsv-summarize -g 1 --count
+#Pseudomonas fluorescens 2
+#Pseudomonas putida      24
+```
