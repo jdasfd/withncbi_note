@@ -2879,3 +2879,137 @@ done
 ```
 
 The goal is to find proteins with more than a copy within species (Pseudomonas), and better a copy among other species (not Pseudomonas).
+
+
+### IPR005999 - Glycerol kinase
+
+- IPR000577 - Carbohydrate kinase, FGGY
+  - IPR005999 - Glycerol kinase
+  - IPR006000 - Xylulokinase
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+cat IPS/predicts.tsv |
+    tsv-filter -H --str-eq family:IPR005999  |
+    tsv-summarize -H -g annotation --count
+#annotation      count
+#glycerol kinase GlpK    1357
+#glycerol kinase 7
+#glycerol kinase (sn-glycerol-3-phosphate generating)    1
+
+cat IPS/predicts.tsv |
+    tsv-filter -H --str-eq family:IPR000577  |
+    tsv-summarize -H -g annotation --count |
+    tsv-filter -H --gt 2:5
+#annotation      count
+#hypothetical protein    9
+#FGGY-family carbohydrate kinase 707
+#glycerol kinase GlpK    839
+#carbohydrate kinase     176
+#xylulokinase    362
+#L-fuculokinase  19
+#autoinducer-2 kinase    21
+#rhamnulokinase  15
+#glycerol kinase 57
+#pentose kinase  9
+#sugar kinase    14
+#ribulokinase    19
+#FGGY family carbohydrate kinase 19
+
+cat IPS/predicts.tsv |
+    tsv-filter -H --str-eq family:IPR006000  |
+    tsv-summarize -H -g annotation --count |
+    tsv-filter -H --gt 2:5
+#annotation      count
+#xylulokinase    671
+
+cat IPS/predicts.tsv |
+    tsv-filter -H --str-eq family:IPR005999 |
+    tsv-summarize -H -g size --count |
+    keep-header -- tsv-sort -k1,1n |
+    tsv-filter -H --ge count:10
+#size    count
+#493     10
+#494     340
+#495     22
+#499     71
+#500     32
+#501     196
+#502     255
+#503     48
+#504     38
+#505     282
+#506     11
+#507     18
+
+cat IPS/predicts.tsv |
+    tsv-filter -H --str-eq family:IPR005999 |
+    tsv-select -f 1-6 |
+    tsv-join -d 2 \
+        -f strains.taxon.tsv -k 1 \
+        --append-fields 4 |
+    tsv-filter --or --str-eq 7:"Pseudomonas aeruginosa" |
+    tsv-summarize -g 7,2 --count |
+    tsv-filter --gt 3:1 |
+    tsv-summarize -g 1 --count
+#Pseudomonas aeruginosa  195
+```
+
+All protein have the same structure FGGY_C and FGGY_N.
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+mkdir -p /mnt/e/data/Pseudomonas/GlpK
+
+cat IPS/predicts.tsv |
+    tsv-filter -H --str-eq family:IPR005999 |
+    datamash transpose |
+    perl -nl -e '
+        $row = $_;
+        $row =~ s/\s//g;
+        length($row) > 20 and print;
+    ' |
+    datamash transpose \
+    > GlpK/GlpK.tsv
+
+plotr tsv GlpK/GlpK.tsv --header
+
+cat IPS/predicts.tsv |
+    tsv-filter -H --or --str-eq family:IPR005999 --str-eq family:IPR000577 --str-eq family:IPR006000 |
+    datamash transpose |
+    perl -nl -e '
+        $row = $_;
+        $row =~ s/\s//g;
+        length($row) > 20 and print;
+    ' |
+    datamash transpose \
+    > GlpK/FGGY.tsv
+
+cat DOMAINS/domains.tsv |
+    tsv-filter -H --not-empty FGGY_C --not-empty FGGY_N |
+    tsv-select -H -f 1-4,FGGY_C,FGGY_N \
+    > GlpK/FGGY_N_C.tsv
+
+wc -l GlpK/*.tsv
+#4320 GlpK/FGGY.tsv
+#5270 GlpK/FGGY_N_C.tsv
+#1364 GlpK/GlpK.tsv
+
+for f in GlpK FGGY FGGY_N_C ; do
+    >&2 echo "==> ${f}"
+
+    faops some PROTEINS/all.replace.fa <(tsv-select -f 1 GlpK/${f}.tsv) stdout \
+        > GlpK/${f}.fa
+
+    muscle -in GlpK/${f}.fa -out GlpK/${f}.aln.fa
+
+    FastTree GlpK/${f}.aln.fa > GlpK/${f}.aln.newick
+
+    nw_reroot GlpK/${f}.aln.newick $(nw_labels GlpK/${f}.aln.newick | grep -E "Bac_subti|Sta_aure") |
+        nw_order -c n - \
+        > GlpK/${f}.reoot.newick
+
+done
+```
