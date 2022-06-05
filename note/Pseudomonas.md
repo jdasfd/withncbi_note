@@ -3079,7 +3079,7 @@ faops size ASSEMBLY/Pseudom_aeru_PAO1/*_protein.faa.gz |
 
 mkdir -p STRAINS
 
-# 12 RefSeq of all Pseudomonas
+# 12 RefSeq strains of all Pseudomonas
 for S in \
     Pseudom_aeru_PAO1 \
     Pseudom_puti_KT2440_GCF_000007565_2 \
@@ -3103,6 +3103,7 @@ for S in $(cat typical.lst); do
     faops split-about ASSEMBLY/${S}/*_protein.faa.gz 200000 STRAINS/${S}/
 done
 
+# using interproscan to search proteins in every RefSeq strains
 for S in $(cat typical.lst); do
     for f in $(find STRAINS/${S}/ -maxdepth 1 -type f -name "[0-9]*.fa" | sort); do
         >&2 echo "==> ${f}"
@@ -3157,6 +3158,9 @@ for S in $(cat typical.lst); do
     COUNT=$((COUNT + 1))
 done
 echo $COUNT
+#12
+# $COUNT is the variable used for loop control
+# it equals to the pseudomonas RefSeq strains number
 
 # families in all strains
 for S in $(cat typical.lst); do
@@ -3169,6 +3173,8 @@ done |
     tsv-filter -H --istr-not-in-fld 2:" DUF" |
     tsv-filter --ge 3:$COUNT \
     > STRAINS/universal.tsv
+# using tsv-filter to exclude those unknown proteins, meanwhile keep those proteins more than 12 strains existed
+# --ge 3:$COUNT: means to get those genes with 1 or more copies in each strains
 
 # All other strains should have only 1 family member
 cp STRAINS/universal.tsv STRAINS/family-1.tsv
@@ -3183,6 +3189,8 @@ for S in $(cat typical.lst | grep -v "_aeru_"); do
 
     mv STRAINS/family-tmp.tsv STRAINS/family-1.tsv
 done
+# tsv-join to exclude those strains in universal.tsv
+# so this step will find those only 1 family (proteins) in Pseudomonas strains (not aeruginosa)
 
 # All P_aeru strains should have multiple family members
 cp STRAINS/family-1.tsv STRAINS/family-n.tsv
@@ -3198,15 +3206,36 @@ for S in $(cat typical.lst | grep "_aeru_"); do
     wc -l < STRAINS/family-tmp.tsv
     mv STRAINS/family-tmp.tsv STRAINS/family-n.tsv
 done
+#18
+#16
+#14
+#14
 
 wc -l STRAINS/Pseudom_aeru_PAO1/family.tsv STRAINS/universal.tsv STRAINS/family-1.tsv STRAINS/family-n.tsv
-#  4084 STRAINS/Pseudom_aeru_PAO1/family.tsv
-#  1567 STRAINS/universal.tsv
-#   972 STRAINS/family-1.tsv
-#    14 STRAINS/family-n.tsv
+#4084 STRAINS/Pseudom_aeru_PAO1/family.tsv
+#1567 STRAINS/universal.tsv
+# 972 STRAINS/family-1.tsv
+#  14 STRAINS/family-n.tsv
 
 cat STRAINS/family-n.tsv |
     tsv-select -f 1,2 |
     (echo -e "#family\tcount" && cat) |
     mlr --itsv --omd cat
 ```
+
+| #family   | count                                                         |
+|-----------|---------------------------------------------------------------|
+| IPR014311 | Guanine deaminase                                             |
+| IPR001404 | Heat shock protein Hsp90 family                               |
+| IPR005999 | Glycerol kinase                                               |
+| IPR000813 | 7Fe ferredoxin                                                |
+| IPR011757 | Lytic transglycosylase MltB                                   |
+| IPR007416 | YggL 50S ribosome-binding protein                             |
+| IPR004361 | Glyoxalase I                                                  |
+| IPR024922 | Rubredoxin                                                    |
+| IPR001353 | Proteasome, subunit alpha/beta                                |
+| IPR002307 | Tyrosine-tRNA ligase                                          |
+| IPR024088 | Tyrosine-tRNA ligase, bacterial-type                          |
+| IPR037532 | Peptidoglycan D,D-transpeptidase FtsI                         |
+| IPR003672 | CobN/magnesium chelatase                                      |
+| IPR004685 | Branched-chain amino acid transport system II carrier protein |
