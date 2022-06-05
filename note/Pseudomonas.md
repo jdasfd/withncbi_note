@@ -3061,3 +3061,152 @@ cat IPS/predicts.tsv |
 #Pseudomonas fluorescens 2
 #Pseudomonas putida      24
 ```
+
+## InterProScan on all proteins of typical strains
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+# the number of all proteins in PAO1
+faops size ASSEMBLY/Pseudom_aeru_PAO1/*_protein.faa.gz |
+    wc -l
+#5572
+
+# the length of all proteins
+faops size ASSEMBLY/Pseudom_aeru_PAO1/*_protein.faa.gz |
+    tsv-summarize --sum 2
+#1858983
+
+mkdir -p STRAINS
+
+# 12 RefSeq of all Pseudomonas
+for S in \
+    Pseudom_aeru_PAO1 \
+    Pseudom_puti_KT2440_GCF_000007565_2 \
+    Pseudom_chl_aureofaciens_30_84_GCF_000281915_1 \
+    Pseudom_entomophi_L48_GCF_000026105_1 \
+    Pseudom_fluo_SBW25_GCF_000009225_2 \
+    Pseudom_prot_Pf_5_GCF_000012265_1 \
+    Pseudom_sav_pv_phaseolicola_1448A_GCF_000012205_1 \
+    Pseudom_stu_A1501_GCF_000013785_1 \
+    Pseudom_syr_pv_syringae_B728a_GCF_000012245_1 \
+    Pseudom_aeru_UCBPP_PA14_GCF_000014625_1 \
+    Pseudom_aeru_PA7_GCF_000017205_1 \
+    Pseudom_aeru_LESB58_GCF_000026645_1 \
+    ; do
+    echo ${S}
+done \
+    > typical.lst
+
+for S in $(cat typical.lst); do
+    mkdir -p STRAINS/${S}
+    faops split-about ASSEMBLY/${S}/*_protein.faa.gz 200000 STRAINS/${S}/
+done
+
+for S in $(cat typical.lst); do
+    for f in $(find STRAINS/${S}/ -maxdepth 1 -type f -name "[0-9]*.fa" | sort); do
+        >&2 echo "==> ${f}"
+        if [ -e ${f}.tsv ]; then
+            >&2 echo ${f}
+            continue
+        fi
+
+        bsub -q mpi -n 24 -J "${f}" "
+            interproscan.sh --cpu 24 -dp -f tsv,json -i ${f} --output-file-base ${f}
+        "
+    done
+done
+
+find STRAINS -type f -name "*.json" | sort |
+    parallel --no-run-if-empty --linebuffer -k -j 8 '
+        if [ $(({#} % 10)) -eq "0" ]; then
+            >&2 printf "."
+        fi
+        pigz -p 3 {}
+    '
+
+# same protein may have multiple families
+for S in $(cat typical.lst); do
+    for f in $(find STRAINS/${S} -maxdepth 1 -type f -name "[0-9]*.json.gz" | sort); do
+        >&2 echo "==> ${f}"
+        gzip -dcf ${f} |
+            jq .results |
+            jq -r -c '
+                .[] |
+                .xref as $name |
+                .matches[] |
+                .signature.entry |
+                select(.type == "FAMILY") |
+                [$name[0].name, .accession, .description] |
+                @tsv
+            ' |
+            tsv-uniq
+    done \
+        > STRAINS/${S}/family.tsv
+done
+
+COUNT=
+for S in $(cat typical.lst); do
+    if [ ! -s STRAINS/${S}/family.tsv ]; then
+        continue
+    fi
+    cat STRAINS/${S}/family.tsv |
+        tsv-summarize -g 2,3 --count \
+        > STRAINS/${S}/family-count.tsv
+
+    COUNT=$((COUNT + 1))
+done
+echo $COUNT
+
+# families in all strains
+for S in $(cat typical.lst); do
+    cat STRAINS/${S}/family-count.tsv
+done |
+    tsv-summarize -g 1,2 --count |
+    tsv-filter -H --istr-not-in-fld 2:"probable" |
+    tsv-filter -H --istr-not-in-fld 2:"putative" |
+    tsv-filter -H --istr-not-in-fld 2:"Uncharacterised" |
+    tsv-filter -H --istr-not-in-fld 2:" DUF" |
+    tsv-filter --ge 3:$COUNT \
+    > STRAINS/universal.tsv
+
+# All other strains should have only 1 family member
+cp STRAINS/universal.tsv STRAINS/family-1.tsv
+for S in $(cat typical.lst | grep -v "_aeru_"); do
+    if [ ! -s STRAINS/${S}/family-count.tsv ]; then
+        continue
+    fi
+    cat STRAINS/${S}/family-count.tsv |
+        tsv-join -k 1 -f STRAINS/family-1.tsv |
+        tsv-filter --eq 3:1 \
+        > STRAINS/family-tmp.tsv
+
+    mv STRAINS/family-tmp.tsv STRAINS/family-1.tsv
+done
+
+# All P_aeru strains should have multiple family members
+cp STRAINS/family-1.tsv STRAINS/family-n.tsv
+for S in $(cat typical.lst | grep "_aeru_"); do
+    if [ ! -s STRAINS/${S}/family-count.tsv ]; then
+        continue
+    fi
+    cat STRAINS/${S}/family-count.tsv |
+        tsv-join -k 1 -f STRAINS/family-n.tsv |
+        tsv-filter --gt 3:1 \
+        > STRAINS/family-tmp.tsv
+
+    wc -l < STRAINS/family-tmp.tsv
+    mv STRAINS/family-tmp.tsv STRAINS/family-n.tsv
+done
+
+wc -l STRAINS/Pseudom_aeru_PAO1/family.tsv STRAINS/universal.tsv STRAINS/family-1.tsv STRAINS/family-n.tsv
+#  4084 STRAINS/Pseudom_aeru_PAO1/family.tsv
+#  1567 STRAINS/universal.tsv
+#   972 STRAINS/family-1.tsv
+#    14 STRAINS/family-n.tsv
+
+cat STRAINS/family-n.tsv |
+    tsv-select -f 1,2 |
+    (echo -e "#family\tcount" && cat) |
+    mlr --itsv --omd cat
+```
