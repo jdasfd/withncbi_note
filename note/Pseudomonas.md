@@ -3218,7 +3218,7 @@ wc -l STRAINS/Pseudom_aeru_PAO1/family.tsv STRAINS/universal.tsv STRAINS/family-
 #  14 STRAINS/family-n.tsv
 
 cat STRAINS/family-n.tsv |
-    tsv-select -f 1,2 |
+    tsv-select -f 1,2 |cc
     (echo -e "#family\tcount" && cat) |
     mlr --itsv --omd cat
 ```
@@ -3239,3 +3239,77 @@ cat STRAINS/family-n.tsv |
 | IPR037532 | Peptidoglycan D,D-transpeptidase FtsI                         |
 | IPR003672 | CobN/magnesium chelatase                                      |
 | IPR004685 | Branched-chain amino acid transport system II carrier protein |
+
+### IPR007416 - YggL 50S ribosome-binding protein
+
+- Pfam: PF04320 - YggL_50S_bp
+- PANTHER: PTHR38778 - CYTOPLASMIC PROTEIN-RELATED (PTHR38778)
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+cat STRAINS/Pseudom_aeru_PAO1/*.tsv |
+    grep "IPR007416"
+
+mkdir -p YggL/HMM
+
+curl -L https://pfam.xfam.org/family/PF04320/hmm > YggL/HMM/YggL_50S_bp.hmm
+curl -L www.pantherdb.org/panther/exportHmm.jsp?acc=PTHR38778 > YggL/HMM/PTHR38778.hmm
+
+# Ribosomal protein L10 and S8
+curl -L https://pfam.xfam.org/family/PF00466/hmm > YggL/HMM/Ribosomal_L10.hmm
+curl -L https://pfam.xfam.org/family/PF00410/hmm > YggL/HMM/Ribosomal_S8.hmm
+
+E_VALUE=1e-20
+for domain in YggL_50S_bp PTHR38778 Ribosomal_L10 Ribosomal_S8 ; do
+    >&2 echo "==> domain [${domain}]"
+
+    if [ -e YggL/${domain}.replace.tsv ]; then
+        continue;
+    fi
+
+    for ORDER in $(cat order.lst); do
+        >&2 echo "==> ORDER [${ORDER}]"
+
+        cat taxon/${ORDER} |
+            parallel --no-run-if-empty --linebuffer -k -j 8 "
+                gzip -dcf ASSEMBLY/{}/*_protein.faa.gz |
+                    hmmsearch -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw YggL/HMM/${domain}.hmm - |
+                    grep '>>' |
+                    perl -nl -e '
+                        m{>>\s+(\S+)} or next;
+                        \$n = \$1;
+                        \$s = \$n;
+                        \$s =~ s/\.\d+//;
+                        printf qq{%s\t%s_%s\n}, \$n, {}, \$s;
+                    '
+            "
+    done \
+        > YggL/${domain}.replace.tsv
+
+    >&2 echo
+done
+
+tsv-join YggL/YggL_50S_bp.replace.tsv \
+    -f YggL/PTHR38778.replace.tsv \
+    > YggL/YggL.replace.tsv
+
+wc -l YggL/*.tsv
+#1559 YggL/PTHR38778.replace.tsv
+#1948 YggL/Ribosomal_L10.replace.tsv
+#1950 YggL/Ribosomal_S8.replace.tsv
+#1564 YggL/YggL_50S_bp.replace.tsv
+#1559 YggL/YggL.replace.tsv
+
+# also extract all pro_seq
+faops some PROTEINS/all.replace.fa <(tsv-select -f 2 YggL/YggL.replace.tsv) YggL/YggL.fa
+
+# muscle for multi_seq alignment
+muscle -in YggL/YggL.fa -out YggL/YggL.aln.fa
+
+FastTree YggL/YggL.aln.fa > YggL/YggL.aln.newick
+
+nw_reroot YggL/YggL.aln.newick $(nw_labels YggL/YggL.aln.newick | grep -E "Bac_subti|Sta_aure") |
+    nw_order -c n - \
+    > YggL/YggL.reoot.newick
+```
