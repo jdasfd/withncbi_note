@@ -66,7 +66,7 @@ $$
 This is called the transition matrix.
 
 $$
-A = \left[\begin{matrix}
+M = \left[\begin{matrix}
 0.2 & 0.6 & 0.2 \\
 0.3 & 0 & 0.7 \\
 0.5 & 0 & 0.5
@@ -84,7 +84,7 @@ This row vector means the B happens at the first time.
 After calculating:
 
 $$
-\pi_{0}A = \left[\begin{matrix}
+\pi_{0}M = \left[\begin{matrix}
 0 & 1 & 0 \\
 \end{matrix}\right]
 \left[\begin{matrix}
@@ -110,7 +110,7 @@ This is just the future probabilities after B has happened.
 Then repeat this:
 
 $$
-\pi_{1}A = \left[\begin{matrix}
+\pi_{1}M = \left[\begin{matrix}
 0.3 & 0 & 0.7
 \end{matrix}\right]
 \left[\begin{matrix}
@@ -125,7 +125,7 @@ $$
 
 So if there is a stationary state, we have the following
 
-$$\pi A = \pi \tag{1}$$
+$$\pi M = \pi \tag{1}$$
 
 The eigenvector(特征向量) equation.
 
