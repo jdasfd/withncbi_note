@@ -23,15 +23,17 @@ graph LR;
     C-->|0.5|C;
 ```
 
-Suppose we have a HMM model like this.
+Suppose we have a Markov chains model like this.
 
 $P(X_{4} = C | X_{1} = B, X_{2} = A, X_{3} = B)$
+
+According to previous step, it only depends on the current state.
 
 $P(X_{4} = C | X_{3} = B)$
 
 $P(X_{4} = C | X_{3} = B) = 0.7$
 
-According to the results, it turns out to be 0.7. (C happens when B has happened already).
+It turns out to be 0.7. (C happens when B has happened already).
 
 That is the Markov property.
 
@@ -58,7 +60,7 @@ $$
 {A} & 0.2 & 0.6 & 0.2 \\
 {B} & 0.3 & 0 & 0.7 \\
 {C} & 0.5 & 0 & 0.5
-\end{array} \tag{6}
+\end{array}
 $$
 
 This is called the transition matrix.
@@ -83,16 +85,15 @@ After calculating:
 
 $$
 \pi_{0}A = \left[\begin{matrix}
-0 & 1 & 0
+0 & 1 & 0 \\
 \end{matrix}\right]
 \left[\begin{matrix}
 0.2 & 0.6 & 0.2 \\
 0.3 & 0 & 0.7 \\
 0.5 & 0 & 0.5
-\end{matrix}\right]
-=
+\end{matrix}\right]=
 \left[\begin{matrix}
-0.3 & 0 & 0.7
+0.3 & 0 & 0.7 \\
 \end{matrix}\right]
 $$
 
@@ -116,8 +117,7 @@ $$
 0.2 & 0.6 & 0.2 \\
 0.3 & 0 & 0.7 \\
 0.5 & 0 & 0.5
-\end{matrix}\right]
-=
+\end{matrix}\right]=
 \left[\begin{matrix}
 0.41 & 0.18 & 0.41
 \end{matrix}\right]
@@ -125,15 +125,15 @@ $$
 
 So if there is a stationary state, we have the following
 
-$\pi A = \pi$
+$$\pi A = \pi \tag{1}$$
 
 The eigenvector(特征向量) equation.
 
 And:
 
-$\pi [1] + \pi [2] + \pi [3] = 1$
+$$\pi [1] + \pi [2] + \pi [3] = 1 \tag{2}$$
 
-Then after solving those two equations:
+Then after solving those two equations (1) and (2):
 
 $$\pi =
 \left[\begin{matrix}
