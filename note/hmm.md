@@ -143,6 +143,115 @@ $$
 
 This is the stationary state.
 
+## Hidden Markov Model (HMM)
+
+It comes from the Markov chain.
+
+Still, an example giving:
+
+Weather: R - Rainy, C - Cloudy, S - Sunny
+
+Mood: Sad, Happy
+
+The mood can be determined by the current weather. 
+
+```mermaid
+graph LR;
+    R-->|0.5|R;
+    R-->|0.3|C;
+    R-->|0.2|S;
+    C-->|0.2|C;
+    C-->|0.4|S;
+    C-->|0.4|R;
+    S-->|0.7|S;
+    S-->|0.3|C;
+    R-.->|0.9|Sad;
+    R-.->|0.1|Happy;
+    C-.->|0.6|Sad;
+    C-.->|0.4|Happy;
+    S-.->|0.2|Sad;
+    S-.->|0.8|Happy;
+```
+
+It is assumed that we cannot know the weather like somehow, but we can directly ask for the mood whether happy or sad. For us, the weather is hidden states (do not know), but the mood is observed variable.
+
+$$HMM = Hidden MC + Observed Variables$$
+
+$$
+\left[\begin{matrix}
+0.5 & 0.3 & 0.2 \\
+0.4 & 0.2 & 0.4 \\
+0.0 & 0.3 & 0.7
+\end{matrix}\right]
+\left[\begin{matrix}
+0.9 & 0.1 \\
+0.6 & 0.4 \\
+0.2 & 0.8
+\end{matrix}\right]
+$$
+
+Now assume that:
+
+```txt
+S   ->  C   ->  S
+|       |       |
+Happy   Sad     Happy
+```
+
+We cannot aquire the hidden state, but we could analyze this scenario.
+
+Q: What is the probability of this scenario occurring? More specific: $P(Y=Happy,Happy,Sad, X=S,C,S)$ joint possibility?
+
+A: We need the following terms:
+
+$P(X_{1} = S)$, $P(Y_{1} = Happy | X_{1} = Sunny)$
+
+$P(X_{2} = C | X_{1} = S)$, $P(Y_{2} = Happy | X_{2} = C)$
+
+$P(X_{3} = S | X_{2} = C)$, $P(Y_{3} = Sad | X_{3} = S)$
+
+The afterwards five terms could be acquired directly from the previous matrix.
+
+And $P(X_{1} = S)$ can be calculated from stationary states mentioned [above](#markov-chains-brief-explanation)
+
+$P(X_{1} = S) = 0.509$, so result is $0.00391$ by multiplying up.
+
+Now because of the weather sequence is unknown (hidden state)
+
+```txt
+    ->      ->   
+|       |       |
+Happy   Sad     Happy
+```
+
+Q: What is the most likely weather sequence for the observed mood sequence?
+
+A: Find the maximum weather sequence probability.
+
+According to the previous step introduced, every possible weather sequence will give out a probability.
+
+$$ argmax_{X = X_{1},X_{2},...,X_{n}} P(X = X_{1},X_{2},...,X_{n} | Y = Y_{1},Y_{2},...,Y_{n}) $$
+
+X means weather sequence, and Y means the observed mood sequence. So this is the probability X given Y.
+
+Bayes theorem:
+
+$$ argmax_{X = X_{1},X_{2},...,X_{n}} \frac{P(Y|X)P(X)}{P(Y)}$$
+
+$$P(Y|X)=P(Y_{1}|X_{1})*P(Y_{2}|X_{2})*...P(Y_{n}|X_{n})$$
+
+And all the above probabilities could be acquired from the matrix.
+
+$$P(Y|X)=\prod P(Y_{i}|X_{i})$$
+
+Because of the Markov chains, we have the following:
+
+$$P(X)=\prod P(X_{i}|X_{i-1})$$
+
+So the maximum value we want to calculate is the following:
+
+$$ argmax_{X = X_{1},X_{2},...,X_{n}} \prod P(Y_{i}|X_{i})P(X_{i}|X_{i-1})$$
+
 ## PFAM-A
 
 ```bash
