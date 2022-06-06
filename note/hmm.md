@@ -1,5 +1,148 @@
 # HMM related resources
 
+## Markov chains brief explanation
+
+$P(X_{n+1} = x | X_{1} = x_{1}, X_{2} = x_{2}, ..., X_{n} = x_{n})$
+
+Markov chain is that the future state depends only on the current state, not the steps before.
+
+Means the following:
+
+$P(X_{n+1} = x | X_{n} = x_{n})$
+
+For example:
+
+```mermaid
+graph LR;
+    A-->|0.2|A;
+    A-->|0.6|B;
+    A-->|0.2|C;
+    B-->|0.3|A;
+    B-->|0.7|C;
+    C-->|0.5|A;
+    C-->|0.5|C;
+```
+
+Suppose we have a HMM model like this.
+
+$P(X_{4} = C | X_{1} = B, X_{2} = A, X_{3} = B)$
+
+$P(X_{4} = C | X_{3} = B)$
+
+$P(X_{4} = C | X_{3} = B) = 0.7$
+
+According to the results, it turns out to be 0.7. (C happens when B has happened already).
+
+That is the Markov property.
+
+Random Walk:
+
+A -> B -> A -> C -> A -> C -> C -> C -> A -> B
+
+Q: What is the probability distribution of the states?
+
+A: It is occurrences of an item by the total number of days.
+
+$P(A) = \frac{4}{10}$, $P(B) = \frac{2}{10}$, $P(C) = \frac{4}{10}$
+
+Q: What will happen in the long term?
+
+A: The stationary distribution or the equilibrium state.
+
+Using linear algebra to find equilibrium state. Transform the above HMM model into a matrix.
+
+$$
+\begin{array}{c|ccc}
+{} & {A} & {B} & {C} \\
+\hline
+{A} & 0.2 & 0.6 & 0.2 \\
+{B} & 0.3 & 0 & 0.7 \\
+{C} & 0.5 & 0 & 0.5
+\end{array} \tag{6}
+$$
+
+This is called the transition matrix.
+
+$$
+A = \left[\begin{matrix}
+0.2 & 0.6 & 0.2 \\
+0.3 & 0 & 0.7 \\
+0.5 & 0 & 0.5
+\end{matrix}\right]
+$$
+
+$$
+\pi_{0} = \left[\begin{matrix}
+0 & 1 & 0
+\end{matrix}\right]
+$$
+
+This row vector means the B happens at the first time.
+
+After calculating:
+
+$$
+\pi_{0}A = \left[\begin{matrix}
+0 & 1 & 0
+\end{matrix}\right]
+\left[\begin{matrix}
+0.2 & 0.6 & 0.2 \\
+0.3 & 0 & 0.7 \\
+0.5 & 0 & 0.5
+\end{matrix}\right]
+=
+\left[\begin{matrix}
+0.3 & 0 & 0.7
+\end{matrix}\right]
+$$
+
+We get the following row vector:
+
+$$
+\pi_{1} = \left[\begin{matrix}
+0.3 & 0 & 0.7
+\end{matrix}\right]
+$$
+
+This is just the future probabilities after B has happened.
+
+Then repeat this:
+
+$$
+\pi_{1}A = \left[\begin{matrix}
+0.3 & 0 & 0.7
+\end{matrix}\right]
+\left[\begin{matrix}
+0.2 & 0.6 & 0.2 \\
+0.3 & 0 & 0.7 \\
+0.5 & 0 & 0.5
+\end{matrix}\right]
+=
+\left[\begin{matrix}
+0.41 & 0.18 & 0.41
+\end{matrix}\right]
+$$
+
+So if there is a stationary state, we have the following
+
+$\pi A = \pi$
+
+The eigenvector(特征向量) equation.
+
+And:
+
+$\pi [1] + \pi [2] + \pi [3] = 1$
+
+Then after solving those two equations:
+
+$$\pi =
+\left[\begin{matrix}
+{\frac{25}{71}} & {\frac{15}{71}} & {\frac{31}{71}}
+\end{matrix}\right]
+$$
+
+This is the stationary state.
+
 ## PFAM-A
 
 ```bash
@@ -85,10 +228,11 @@ cat ~/Scripts/withncbi/hmm/bac120.tsv |
     tsv-select -f 1 |
     grep -v '^TIGR' |
     parallel --no-run-if-empty --linebuffer -k -j 4 '
-        curl -L http://pfam.xfam.org/family/{}/hmm > HMM/{}.HMM
+        curl -L https://pfam.xfam.org/family/{}/hmm > HMM/{}.HMM
     '
 ```
 
 TIGR represents the whole length protein.
 
 PF represents the short domain.
+
