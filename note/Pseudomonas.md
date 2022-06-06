@@ -3064,6 +3064,10 @@ cat IPS/predicts.tsv |
 
 ## InterProScan on all proteins of typical strains
 
+Because the previous step is not able to find enough genes. It is obvious that another method should be taken as an alternative.
+
+Using InterProScan to scan all proteins directly in typical strains of Pseudomonas species. Copy number of all proteins found will be counted and determined whether they are more than 1 copy in Pseudomonas aeruginosa.
+
 ```bash
 cd /mnt/e/data/Pseudomonas
 
@@ -3072,7 +3076,7 @@ faops size ASSEMBLY/Pseudom_aeru_PAO1/*_protein.faa.gz |
     wc -l
 #5572
 
-# the length of all proteins
+# the length of all proteins added
 faops size ASSEMBLY/Pseudom_aeru_PAO1/*_protein.faa.gz |
     tsv-summarize --sum 2
 #1858983
@@ -3102,8 +3106,12 @@ for S in $(cat typical.lst); do
     mkdir -p STRAINS/${S}
     faops split-about ASSEMBLY/${S}/*_protein.faa.gz 200000 STRAINS/${S}/
 done
+# faops split-about: split an fa file into several files of about approx_size bytes each by record
+# faops split-about [options] <in.fa> <approx_size> <outdir>
+# it was split by file size instead of number of lines
 
 # using interproscan to search proteins in every RefSeq strains
+# interproscan would consume a lot of computing power, so files were splited and executed on HPCC
 for S in $(cat typical.lst); do
     for f in $(find STRAINS/${S}/ -maxdepth 1 -type f -name "[0-9]*.fa" | sort); do
         >&2 echo "==> ${f}"
@@ -3160,6 +3168,8 @@ done
 echo $COUNT
 #12
 # $COUNT is the variable used for loop control
+# it is also a proxy of all strains with protein families detected
+# so the $COUNT equals to 12 also represents all strains with pro_families
 # it equals to the pseudomonas RefSeq strains number
 
 # families in all strains
@@ -3173,8 +3183,11 @@ done |
     tsv-filter -H --istr-not-in-fld 2:" DUF" |
     tsv-filter --ge 3:$COUNT \
     > STRAINS/universal.tsv
+# for loop will cat all family-count into one
+# tsv-summarize will count according to the family name - so it represents directly to copy number of 12 strains
 # using tsv-filter to exclude those unknown proteins, meanwhile keep those proteins more than 12 strains existed
-# --ge 3:$COUNT: means to get those genes with 1 or more copies in each strains
+# --ge 3:$COUNT: means to get those genes with 1 or more copies in each strain
+# this step actually ensure that every strain has at least a copy
 
 # All other strains should have only 1 family member
 cp STRAINS/universal.tsv STRAINS/family-1.tsv
@@ -3189,8 +3202,9 @@ for S in $(cat typical.lst | grep -v "_aeru_"); do
 
     mv STRAINS/family-tmp.tsv STRAINS/family-1.tsv
 done
-# tsv-join to exclude those strains in universal.tsv
+# tsv-join to exclude those strains not in universal.tsv, which means copy number at least greater than 12
 # so this step will find those only 1 family (proteins) in Pseudomonas strains (not aeruginosa)
+# then tsv-filter will keep those only have 1 copy
 
 # All P_aeru strains should have multiple family members
 cp STRAINS/family-1.tsv STRAINS/family-n.tsv
@@ -3210,6 +3224,8 @@ done
 #16
 #14
 #14
+# four numbers means the family-n.tsv was filtered four times as the P_aeru has four strains
+# after that, 14 target genes were left for the next step
 
 wc -l STRAINS/Pseudom_aeru_PAO1/family.tsv STRAINS/universal.tsv STRAINS/family-1.tsv STRAINS/family-n.tsv
 #4084 STRAINS/Pseudom_aeru_PAO1/family.tsv
@@ -3250,6 +3266,7 @@ cd /mnt/e/data/Pseudomonas
 
 cat STRAINS/Pseudom_aeru_PAO1/*.tsv |
     grep "IPR007416"
+# this step will show you how to get the above two accessions
 
 mkdir -p YggL/HMM
 
@@ -3289,10 +3306,13 @@ for domain in YggL_50S_bp PTHR38778 Ribosomal_L10 Ribosomal_S8 ; do
 
     >&2 echo
 done
+# basic operations on hmmsearch, go check the above
+# this E_VALUE will help us find domains most likely as usual
 
 tsv-join YggL/YggL_50S_bp.replace.tsv \
     -f YggL/PTHR38778.replace.tsv \
     > YggL/YggL.replace.tsv
+# combine two files included domains from different database
 
 wc -l YggL/*.tsv
 #1559 YggL/PTHR38778.replace.tsv
@@ -3312,4 +3332,76 @@ FastTree YggL/YggL.aln.fa > YggL/YggL.aln.newick
 nw_reroot YggL/YggL.aln.newick $(nw_labels YggL/YggL.aln.newick | grep -E "Bac_subti|Sta_aure") |
     nw_order -c n - \
     > YggL/YggL.reoot.newick
+```
+
+## Collect CDS
+
+Getting all cds, maybe needed later.
+
+### `all.cds.fa`
+
+```bash
+cd /mnt/e/data/Pseduomonas
+
+mkdir -p CDS
+
+find ASSEMBLY -type f -name "*_cds_from_genomic.fna.gz" |
+    wc -l
+# 1958
+
+# sed script converting from Contigs to Strain
+for ORDER in $(cat order.lst); do
+    echo 1>&2 "==> ORDER [${ORDER}]"
+
+    for STRAIN in $(cat taxon/${ORDER}); do
+        find ASSEMBLY/${STRAIN} -type f -name "*_genomic.fna.gz" |
+            grep -v "_from_" |
+            xargs gzip -dcf |
+            grep '^>' |
+            cut -d' ' -f 1 |
+            sed 's/>//' |
+            xargs -I{} echo -e "{}\t${STRAIN}"
+    done
+done \
+    > CDS/contigs_to_strain.tsv
+
+cat CDS/contigs_to_strain.tsv |
+    perl -nla -e '
+        print q{s/^>} . quotemeta($F[0]) . q{/>} . quotemeta($F[1]) . q{/g;};
+    ' \
+    > CDS/sed.script
+
+wc -l < CDS/sed.script
+# 3893
+
+for ORDER in $(cat order.lst); do
+    echo 1>&2 "==> ORDER [${ORDER}]"
+
+    for STRAIN in $(cat taxon/${ORDER}); do
+        gzip -dcf ASSEMBLY/${STRAIN}/*_cds_from_genomic.fna.gz
+    done
+done |
+    perl -nl -e 's/^>lcl\|/>/g; print' |
+    perl -nl -e 's/\s+\[.+?\]//g; print' \
+    > CDS/all.cds.fa
+```
+
+### `YggL.cds.fa`
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+for domain in YggL Ribosomal_L10 Ribosomal_S8 ; do
+    cat CDS/all.cds.fa |
+        grep '>' |
+        grep -F -f <( cat YggL/${domain}.replace.tsv | cut -f 1 ) |
+        sed 's/^>//' \
+        > CDS/${domain}.lst
+done
+
+for domain in YggL Ribosomal_L10 Ribosomal_S8 ; do
+    faops order CDS/all.cds.fa CDS/${domain}.lst stdout |
+        sed -f CDS/sed.script \
+        > CDS/${domain}.cds.fa
+done
 ```
