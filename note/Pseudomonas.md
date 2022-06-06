@@ -396,7 +396,7 @@ echo "
     > reference.tsv
 
 cat reference.tsv | wc -l
-#16 - only 16 reference genome from all genera
+#  16 - only 16 reference genome from all genera
 
 cat reference.tsv |
     sed '1s/^/#/' |
@@ -457,7 +457,7 @@ cat reference.tsv |
     tsv-select -H -f organism_name,species,genus,ftp_path,assembly_level \
     > raw.tsv
 cat raw.tsv | wc -l
-#16
+#  16
 
 # Genus (contained all Species)
 # Species with 2 or more genomes were retained from our target genera (changed order)
@@ -492,7 +492,7 @@ echo "
 # Other strains belong to Pseudomonadales order but not our target species
 
 cat raw.tsv | wc -l
-#1666
+#  1666
 
 # The SQLite || operator allows you to concatenate 2 or more strings together.
 # This step finally got all strains' assemblies from species.count.tsv
@@ -534,7 +534,7 @@ echo "
     >> raw.tsv
 
 cat raw.tsv | wc -l
-#2095
+#  2095
 
 # Create abbr.
 cat raw.tsv |
@@ -720,7 +720,7 @@ cat ASSEMBLY/Pseudomonas.assembly.collect.csv |
 # This step will actually give you all the Biosample into a txt according to their SAMN number
 
 find biosample -name "SAM*.txt" | wc -l
-# 1957
+#  1957
 
 # get all BioSample txt attributes
 find biosample -name "SAM*.txt" |
@@ -833,9 +833,9 @@ cat ASSEMBLY/n50.tsv |
 # evaluate tests as an OR rather than an AND clause (default)
 
 wc -l ASSEMBLY/n50*
-#1958 ASSEMBLY/n50.pass.csv
-#1959 ASSEMBLY/n50.tsv
-#3917 total
+#  1958 ASSEMBLY/n50.pass.csv
+#  1959 ASSEMBLY/n50.tsv
+#  3917 total
 
 tsv-join \
     ASSEMBLY/Pseudomonas.assembly.collect.csv \
@@ -849,12 +849,12 @@ tsv-join \
     > ASSEMBLY/Pseudomonas.assembly.pass.csv
 
 wc -l ASSEMBLY/Pseudomonas.assembly*csv
-#1959 ASSEMBLY/Pseudomonas.assembly.collect.csv
-#1953 ASSEMBLY/Pseudomonas.assembly.pass.csv
+#  1959 ASSEMBLY/Pseudomonas.assembly.collect.csv
+#  1953 ASSEMBLY/Pseudomonas.assembly.pass.csv
 
 # number of strains
 cat ASSEMBLY/Pseudomonas.assembly.pass.csv | sed '1d' | wc -l
-#1952
+#  1952
 ```
 
 - Order
@@ -970,7 +970,7 @@ cat genus.lst |
     mlr --itsv --omd cat
 # only show the genus contained 10+ strains
 # tsv-sort -k2,2 | wc -l
-#171
+#  171
 # totally 171 genera here
 ```
 
@@ -1050,7 +1050,7 @@ compgen -G "ASSEMBLY/Acidif_thio_GCF_001705075_2/*_protein.faa.gz"
 #ASSEMBLY/Acidif_thio_GCF_001705075_2/GCF_001705075.2_ASM170507v2_protein.faa.gz
 
 cat omit.lst | wc -l
-#0
+#  0
 # All OK
 
 rm *.tmp
@@ -1203,10 +1203,10 @@ mash triangle -E -p 8 -l <(
 # -l: list input, lines in each <query> specify paths to seq files, one per line
 
 ls *.msh | wc -l
-#1952
+#  1952
 
 cat dist.tsv | wc -l
-#1904176
+#  1904176
 #1952*1951/2*1, C(1952,2)
 
 # fill matrix with lower triangle
@@ -1221,14 +1221,14 @@ tsv-select -f 1-3 dist.tsv |
     > dist_full.tsv
 
 tsv-select -f 1-3 dist.tsv | (tsv-select -f 2,1,3 dist.tsv && cat) | wc -l
-#3808352
+#  3808352
 # actually swap col1 and col2 and then using cat to combine them
 
 cut -f 1 dist.tsv | tsv-uniq | parallel -j 1 --keep-order 'echo -e "{}\t{}\t0"' | wc -l
 # other 1951 strains dist to themselves - 0
 
 cat dist_full.tsv | wc -l
-#3810303
+#  3810303
 # 3808352+1951
 
 cat dist_full.tsv |
@@ -1381,7 +1381,7 @@ cat strains.lst |
 # after paste, it will be the name, protein file path
 
 wc -l < pangenome/Pseudom_aeru.gbff.list
-# 391
+#  391
 
 ppanggolin workflow --anno pangenome/Pseudom_aeru_1.gbff.list --cpu 8 -o pangenome/Pseudom_aeru
 # ppanggolin workflow
@@ -1409,15 +1409,15 @@ find ASSEMBLY -maxdepth 1 -mindepth 1 -type d |
     sort |
     grep 'ASSEMBLY/' |
     wc -l
-#1958
+#  1958
 
 find ASSEMBLY -type f -name "*_protein.faa.gz" |
     wc -l
-#1958
+#  1958
 
 cat strains.lst |
     wc -l
-#1952
+#  1952
 # All strains after filtering
 
 for STRAIN in $(cat strains.lst); do
@@ -1445,19 +1445,19 @@ cat PROTEINS/all.pro.fa |
 cat PROTEINS/all.pro.fa |
     grep "^>" |
     wc -l
-#8754303
+#  8754303
 
 cat PROTEINS/all.pro.fa |
     grep "^>" |
     tsv-uniq |
     wc -l
-#3995205
+#  3995205
 
 # annotations may be different
 cat PROTEINS/all.uniq.fa |
     grep "^>" |
     wc -l
-#3944568
+#  3944568
 # which means the same accession annotated differently 
 
 # ribonuclease was an example about how to grep proteins needed from the whole protein fasta
@@ -1512,7 +1512,7 @@ done \
 cat PROTEINS/all.replace.fa |
     grep "^>" |
     wc -l
-#8754303
+#  8754303
 # the same to all.pro.fa, so all protein names were replaced by strain_accession(pro)
 
 (echo -e "#name\tstrain" && cat PROTEINS/all.strain.tsv)  \
@@ -1550,7 +1550,7 @@ done \
 
 cat PROTEINS/all.annotation.tsv |
     wc -l
-#8754303
+#  8754303
 
 (echo -e "#name\tannotation" && cat PROTEINS/all.annotation.tsv) \
     > temp &&
@@ -1581,7 +1581,7 @@ tsv-join \
 
 cat PROTEINS/all.info.tsv |
     wc -l
-#8754304
+#  8754304
 ```
 
 ## Phylogenetics with 40 single-copy genes
@@ -1973,7 +1973,7 @@ cat ~/data/HMM/bac120/bac120.tsv | sed '1d' | cut -f 1 |
             wc -l
     ' |
     tsv-summarize --quantile 1:0.25,0.5,0.75
-#1948    1951    3066
+#  1948    1951    3066
 
 cat ~/data/HMM/bac120/bac120.tsv | sed '1d' | cut -f 1 |
     parallel --no-run-if-empty --linebuffer -k -j 4 '
@@ -2183,15 +2183,15 @@ gzip -dcf \
     > DOMAINS/ref_strain/pro.lst
 
 wc -l DOMAINS/ref_strain/*.lst
-#497 DOMAINS/ref_strain/gene.lst
-#513 DOMAINS/ref_strain/locus.lst
-#497 DOMAINS/ref_strain/pro.lst
+#  497 DOMAINS/ref_strain/gene.lst
+#  513 DOMAINS/ref_strain/locus.lst
+#  497 DOMAINS/ref_strain/pro.lst
 
 faops some PROTEINS/all.uniq.fa DOMAINS/ref_strain/pro.lst stdout \
     > DOMAINS/ref_strain/pro.fa
 
 faops size DOMAINS/ref_strain/pro.fa | wc -l
-#495
+#  495
 # 2 miss from pro.lst
 
 # prepare an HMM database for faster hmmscan searches
@@ -2223,7 +2223,7 @@ cat ~/data/HMM/PFAM/Pfam-A.hmm.dat |
 # meaning the output contained grep and more 2 lines after
 
 wc -l < DOMAINS/ref_strain/pfam_domain.tsv
-#107
+#  107
 ```
 
 The results contain all pfam_domain after scanning by `hmmscan`, and those 107 domains are all related to `GO:0005975` carbohydrate metabolic process. All domains are generated from ref_strain.
@@ -2289,7 +2289,7 @@ cat Glyco_hyd.htm |
 #    >> raw.tsv
 
 wc -l < raw.tsv
-#290
+#  290
 
 cat raw.tsv |
     tsv-filter --str-not-in-fld 2:"DUF" |
@@ -2299,7 +2299,7 @@ cat raw.tsv |
 # DUF represents domain with unknown function
 
 wc -l < pfam_domain.tsv
-#216
+#  216
 
 mkdir -p ~/data/Pseudomonas/DOMAINS/HMM
 
@@ -2311,7 +2311,7 @@ cat pfam_domain.tsv |
 
 find DOMAINS/HMM -type f -name "*.hmm" |
     wc -l
-#216
+#  216
 ```
 
 Basically, using 2 different methods, we got totally 216 domains from both PFAM and Pseudomonas GO term after removed those domains whose function have been unknown yet.
@@ -2359,7 +2359,7 @@ for domain in $(cat pfam_domain.tsv | cut -f 2 | sort); do
 done
 
 ls DOMAINS/*.replace.tsv | wc -l
-#216
+#  216
 # now each DOMAINS/${domain}.replace.tsv has all proteins info that has the ${domain}
 # all 216 domains have their own tsv contained proteins from all strains
 
@@ -2465,7 +2465,7 @@ cat pfam_domain.tsv | cut -f 2 | sort |
     > domain.lst
 
 wc -l < domain.lst
-#202
+#  202
 
 cat domain.lst |
     parallel --no-run-if-empty --linebuffer -k -j 1 '
@@ -2479,11 +2479,11 @@ cat domain.lst |
 
 # proteins have domains
 wc -l < DOMAINS/domains.tsv
-#200612
+#  200612
 
 # all proteins uniq among all strains
 faops size PROTEINS/all.uniq.fa | wc -l
-#3944568
+#  3944568
 
 for domain in $(cat domain.lst); do
     echo 1>&2 "==> domain [${domain}]"
@@ -2607,7 +2607,7 @@ cat strains.lst |
 # 1953 strains pass and be used for protein analysis
 
 find IPS -maxdepth 1 -mindepth 1 -type d | wc -l
-#1952
+#  1952
 # just equal to the number of strains
 
 cat strains.lst |
@@ -2615,7 +2615,7 @@ cat strains.lst |
         cat IPS/{}/wanted.lst | wc -l
     ' |
     tsv-summarize --quantile 1:0.25,0.5,0.75
-#64      111     128
+#  64      111     128
 # totally 202 domains in domain.lst, and tsv-summarize could tell us quartile of domains
 
 # scan proteins of each strain with InterProScan
@@ -2679,7 +2679,7 @@ cat strains.lst |
     > IPS/family.tsv
 
 wc -l < IPS/family.tsv
-#135966
+#  135966
 # proteins scanned by the method above
 
 tsv-join \
@@ -2993,9 +2993,9 @@ cat DOMAINS/domains.tsv |
     > GlpK/FGGY_N_C.tsv
 
 wc -l GlpK/*.tsv
-#4320 GlpK/FGGY.tsv
-#5270 GlpK/FGGY_N_C.tsv
-#1364 GlpK/GlpK.tsv
+#  4320 GlpK/FGGY.tsv
+#  5270 GlpK/FGGY_N_C.tsv
+#  1364 GlpK/GlpK.tsv
 
 for f in GlpK FGGY FGGY_N_C ; do
     >&2 echo "==> ${f}"
@@ -3074,7 +3074,7 @@ cd /mnt/e/data/Pseudomonas
 # the number of all proteins in PAO1
 faops size ASSEMBLY/Pseudom_aeru_PAO1/*_protein.faa.gz |
     wc -l
-#5572
+#  5572
 
 # the length of all proteins added
 faops size ASSEMBLY/Pseudom_aeru_PAO1/*_protein.faa.gz |
@@ -3220,18 +3220,18 @@ for S in $(cat typical.lst | grep "_aeru_"); do
     wc -l < STRAINS/family-tmp.tsv
     mv STRAINS/family-tmp.tsv STRAINS/family-n.tsv
 done
-#18
-#16
-#14
-#14
+#  18
+#  16
+#  14
+#  14
 # four numbers means the family-n.tsv was filtered four times as the P_aeru has four strains
 # after that, 14 target genes were left for the next step
 
 wc -l STRAINS/Pseudom_aeru_PAO1/family.tsv STRAINS/universal.tsv STRAINS/family-1.tsv STRAINS/family-n.tsv
-#4084 STRAINS/Pseudom_aeru_PAO1/family.tsv
-#1567 STRAINS/universal.tsv
-# 972 STRAINS/family-1.tsv
-#  14 STRAINS/family-n.tsv
+#  4084 STRAINS/Pseudom_aeru_PAO1/family.tsv
+#  1567 STRAINS/universal.tsv
+#   972 STRAINS/family-1.tsv
+#    14 STRAINS/family-n.tsv
 
 cat STRAINS/family-n.tsv |
     tsv-select -f 1,2 |cc
@@ -3315,11 +3315,11 @@ tsv-join YggL/YggL_50S_bp.replace.tsv \
 # combine two files included domains from different database
 
 wc -l YggL/*.tsv
-#1559 YggL/PTHR38778.replace.tsv
-#1948 YggL/Ribosomal_L10.replace.tsv
-#1950 YggL/Ribosomal_S8.replace.tsv
-#1564 YggL/YggL_50S_bp.replace.tsv
-#1559 YggL/YggL.replace.tsv
+#  1559 YggL/PTHR38778.replace.tsv
+#  1948 YggL/Ribosomal_L10.replace.tsv
+#  1950 YggL/Ribosomal_S8.replace.tsv
+#  1559 YggL/YggL.replace.tsv
+#  1564 YggL/YggL_50S_bp.replace.tsv
 
 # also extract all pro_seq
 faops some PROTEINS/all.replace.fa <(tsv-select -f 2 YggL/YggL.replace.tsv) YggL/YggL.fa
@@ -3347,7 +3347,7 @@ mkdir -p CDS
 
 find ASSEMBLY -type f -name "*_cds_from_genomic.fna.gz" |
     wc -l
-# 1958
+#  1958
 
 # sed script converting from Contigs to Strain
 for ORDER in $(cat order.lst); do
