@@ -296,6 +296,9 @@ This systematic approach reveals 40 PhyEco marker candidates spanning the domain
 
 Ref.:
 1. [PLoS One, 2013, 8(10): e77033](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0077033)
+2. [ISME J, 2016, 10: 2679-2692](https://www.nature.com/articles/ismej201655)
+3. [https://doi.org/10.6084/m9.figshare.722713.v1](https://doi.org/10.6084/m9.figshare.722713.v1)
+4. `bacteria_and_archaea.tgz`: [https://ndownloader.figshare.com/files/3093482](https://ndownloader.figshare.com/files/3093482)
 
 ```bash
 mkdir -p ~/data/HMM/scg40
@@ -345,3 +348,6 @@ TIGR represents the whole length protein.
 
 PF represents the short domain.
 
+## Ref:
+- [Markov Chains Clearly Explained!](https://www.youtube.com/watch?v=i3AkTO9HLXo&list=PLM8wYQRetTxBkdvBtz-gw8b9lcVkdXQKV&index=1)
+- [Hidden Markov Model Clearly Explained!](https://www.youtube.com/watch?v=RWkHJnFj5rY&list=PLM8wYQRetTxBkdvBtz-gw8b9lcVkdXQKV&index=5)
