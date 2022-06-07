@@ -348,6 +348,22 @@ TIGR represents the whole length protein.
 
 PF represents the short domain.
 
+## PGAP
+
+PGAP: Prokaryotic Genome Annotation Pipeline
+
+```bash
+mkdir -p ~/data/HMM/PGAP
+cd ~/data/HMM/PGAP
+
+wget -N --content-disposition https://ftp.ncbi.nlm.nih.gov/hmm/current/hmm_PGAP.HMM.tgz
+
+mkdir -p HMM
+tar --directory HMM -xzvf hmm_PGAP.HMM.tgz
+```
+
+Also included HMM from TIGR.
+
 ## Ref:
 - [Markov Chains Clearly Explained!](https://www.youtube.com/watch?v=i3AkTO9HLXo&list=PLM8wYQRetTxBkdvBtz-gw8b9lcVkdXQKV&index=1)
 - [Hidden Markov Model Clearly Explained!](https://www.youtube.com/watch?v=RWkHJnFj5rY&list=PLM8wYQRetTxBkdvBtz-gw8b9lcVkdXQKV&index=5)
