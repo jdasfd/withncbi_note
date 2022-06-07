@@ -31,6 +31,8 @@ In PIRSF database, the Pfam domain was contained, so I used the Pfam HMM.
 
 The goal of the step is to search target protein from each strain.
 
+### hmmsearch for Rubredoxin
+
 ```bash
 cd /mnt/e/data/Pseudomonas
 
@@ -89,8 +91,9 @@ FastTree Rubr/Rubr.aln.fa > Rubr/Rubr.aln.newick
 
 nw_reroot Rubr/Rubr.aln.newick $(nw_labels Rubr/Rubr.aln.newick | grep -E "Bac_subti|Sta_aure") |
     nw_order -c n - \
-    > Rubr/Rubr.reoot.newick
+    > Rubr/Rubr.reroot.newick
 
+# Rubredoxin among all reference genomes
 cat Rubr/Rubr.replace.tsv | grep -v 'GCF'
 #YP_004994544.1  Acin_pittii_PHEA_2_YP_004994544
 #NP_820858.1     Co_burn_RSA_493_NP_820858
@@ -102,10 +105,85 @@ cat Rubr/Rubr.replace.tsv | grep -v 'GCF'
 #NP_254038.1     Pseudom_aeru_PAO1_NP_254038
 #NP_254037.1     Pseudom_aeru_PAO1_NP_254037
 #YP_002517953.1  Cau_vib_NA1000_YP_002517953
-# Rubredoxin among all reference genomes
 ```
 
-## 
+### Counting copy of each strain
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+cat PROTEINS/all.strain.tsv |
+    sed '1d' |
+    grep -F -f <(cut -f 2 Rubr/Rubredoxin.replace.tsv) |
+    cut -f 2 |
+    tsv-summarize -g 1 --count \
+    > Rubr/strains.copy.tsv
+
+wc -l Rubr/strains.copy.tsv
+#1505 Rubr/strains.copy.tsv
+# all strains passed up to 1952, so there are strains missing the Rubredoxin
+
+cat strains.lst |
+    grep -v -F -f <(cat Rubr/strains.copy.tsv | cut -f 1) |
+    awk '{print $0"\t"0}' \
+    >> Rubr/strains.copy.tsv
+
+wc -l Rubr/strains.copy.tsv
+#1952 Rubr/strains.copy.tsv
+
+(echo -e "strains\tcopy_num" && cat Rubr/strains.copy.tsv) > \
+    temp && mv temp Rubr/strains.copy.tsv
+
+cat strains.taxon.tsv |
+    cut -f 1,4 |
+    sed '1istrains\tspecies' |
+    tsv-join -H --filter-file Rubr/strains.copy.tsv -k strains --append-fields copy_num \
+    > Rubr/species.copy.tsv
+
+
+```
+
+### Reference 
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+mkdir -p Rubr/tree
+
+Rscript -e '
+library(dplyr)
+library(ggtree)
+gtree=read.tree("/tree/bac120.reroot.newick")
+ptree=read.tree("/Rubr/Rubr.reroot.newick")
+p1 <- ggtree(gtree)
+p2 <- ggtree(ptree)
+
+d1 <- p1$data
+d2 <- p2$data
+
+d2$x
+'
+
+library(dplyr)
+library(ggtree)
+tree1=read.tree("bac120.model.reroot.newick")
+tree2=read.tree("bac120.protein.newick")
+p1 <- ggtree(tree1)
+p2 <- ggtree(tree2)
+
+d1 <- p1$data
+d2 <- p2$data
+
+d2$x <- max(d2$x) - d2$x + max(d1$x) + 1 #翻转第二棵树
+d2$y <- d2$y + 8 #将第二棵树向上移动对齐
+p3 <- ggtree::rotate(p1,29) #旋转node，使两棵树拓扑结构一致
+
+pp <- p3 + geom_tiplab(offset=0.05) + geom_treescale()+ geom_highlight(node=25,fill="red")+ geom_tree(data=d2) + geom_tiplab(data = d2, hjust=1, offset =-0.05)+geom_treescale(x=2)
+
+#geom_tiplab(offset=0.05) 添加label，offset：label与树枝末端距离
+#geom_treescale() #添加表尺
+#geom_highlight(node=25,fill="red") #添加红色区域
+```
 
 ## Compare protein seqs with TIGRFAM
 
