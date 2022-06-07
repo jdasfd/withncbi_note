@@ -21,59 +21,6 @@ The two proteins were selected from my teacher's protocol in [Pseudomonas.md](Ps
 
   Rubredoxin is a low molecular weight iron-containing bacterial and archaeal protein that is involved in electron transfer, sometimes replacing ferredoxin as an electron carrier. GO:0009055, GO:0005506
 
-## IPR000813 - 7Fe ferredoxin
-
-- PRINTS: PR00354 7Fe ferredoxin signature
-
-PRINTS database does not have the HMM of the protein.
-
-7FE8SFRDOXIN is a 3-element fingerprint that provides a signature for 7Fe ferredoxins. The fingerprint was derived from an initial alignment of 2 sequences: motif 1 contains 2 of 3 invariant Cys residues contributing to the 3Fe-4S cluster, which is located upstream from the 4Fe-4S domain; motif 2 contains the first invariant Cys of the 4Fe-4S cluster; and motif 3 contains 3 invariant cysteines of the 4Fe-4S cluster and one Cys ligand of its downstream 3Fe-4S counterpart (see scheme above).
-
-- Pfam: PF00037: Fer4, which is the 4Fe-4S motif 1
-
-```bash
-cat STRAINS/Pseudom_aeru_PAO1/*.tsv |
-    grep "IPR000813"
-# this step will provide you all the 7Fe ferredoxin info in the previous analyze
-# the 7Fe ferredoxin was recorded in the PRINTS database
-
-mkdir -p Ferr/HMM
-
-curl -L https://pfam.xfam.org/family/PF00037/hmm > Ferr/HMM/Fer4.hmm
-
-E_VALUE=1e-20
-for domain in Fer4; do
-    >&2 echo "==> domain [${domain}]"
-
-    if [ -e Rubr/${domain}.replace.tsv ]; then
-        continue;
-    fi
-
-    for ORDER in $(cat order.lst); do
-        >&2 echo "==> ORDER [${ORDER}]"
-
-        cat taxon/${ORDER} |
-            parallel --no-run-if-empty --linebuffer -k -j 8 "
-                gzip -dcf ASSEMBLY/{}/*_protein.faa.gz |
-                    hmmsearch -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw Ferr/HMM/${domain}.hmm - |
-                    grep '>>' |
-                    perl -nl -e '
-                        m{>>\s+(\S+)} or next;
-                        \$n = \$1;
-                        \$s = \$n;
-                        \$s =~ s/\.\d+//;
-                        printf qq{%s\t%s_%s\n}, \$n, {}, \$s;
-                    '
-            "
-    done \
-        > Ferr/${domain}.replace.tsv
-
-    >&2 echo
-done
-
-
-```
-
 ## IPR024922 - Rubredoxin
 
 - PIRSF: PIRSF000071 Rubredoxin
@@ -94,7 +41,7 @@ curl -L http://www.pantherdb.org/panther/exportHmm.jsp?acc=PTHR47627 > Rubr/HMM/
 
 # using Rubredoxin.hmm to search in each strains
 E_VALUE=1e-20
-for domain in Rubr; do
+for domain in Rubr PTHR47627; do
     >&2 echo "==> domain [${domain}]"
 
     if [ -e Rubr/${domain}.replace.tsv ]; then
@@ -123,11 +70,17 @@ for domain in Rubr; do
     >&2 echo
 done
 
+tsv-join Rubr/Rubr.replace.tsv \
+    -f Rubr/PTHR47627.replace.tsv \
+    > Rubr/Rubredoxin.replace.tsv
+
 wc -l Rubr/*.tsv
-#2089 Rubr/Rubredoxin.replace.tsv
+#  1997 Rubr/PTHR47627.replace.tsv
+#  2089 Rubr/Rubr.replace.tsv
+#  1990 Rubr/Rubredoxin.replace.tsv
 # remember that 1952 strains passed were obtained
 
-# extract all Rubr protein seqs
+# extract all Rubr pro_seqs
 faops some PROTEINS/all.replace.fa <(tsv-select -f 2 Rubr/Rubredoxin.replace.tsv) Rubr/Rubr.fa
 
 muscle -in Rubr/Rubr.fa -out Rubr/Rubr.aln.fa
@@ -137,7 +90,22 @@ FastTree Rubr/Rubr.aln.fa > Rubr/Rubr.aln.newick
 nw_reroot Rubr/Rubr.aln.newick $(nw_labels Rubr/Rubr.aln.newick | grep -E "Bac_subti|Sta_aure") |
     nw_order -c n - \
     > Rubr/Rubr.reoot.newick
+
+cat Rubr/Rubr.replace.tsv | grep -v 'GCF'
+#YP_004994544.1  Acin_pittii_PHEA_2_YP_004994544
+#NP_820858.1     Co_burn_RSA_493_NP_820858
+#NP_417190.1     Es_coli_K_12_MG1655_NP_417190
+#NP_311593.1     Es_coli_O157_H7_Sakai_NP_311593
+#YP_005228417.1  Kle_pneumon_pneumoniae_HS11286_YP_005228417
+#NP_461761.1     Salm_enterica_enterica_Typhimurium_LT2_NP_461761
+#NP_708517.1     Shig_fle_2a_301_NP_708517
+#NP_254038.1     Pseudom_aeru_PAO1_NP_254038
+#NP_254037.1     Pseudom_aeru_PAO1_NP_254037
+#YP_002517953.1  Cau_vib_NA1000_YP_002517953
+# Rubredoxin among all reference genomes
 ```
+
+## 
 
 ## Compare protein seqs with TIGRFAM
 
@@ -207,4 +175,58 @@ cat Rubr/Rubr.tigrfam.tbl |
 cat Rubr/Rubr.tigrfam.tsv |
     tsv-filter --le 4:1e-50 |
     wc -l
+```
+
+
+## IPR000813 - 7Fe ferredoxin
+
+- PRINTS: PR00354 7Fe ferredoxin signature
+
+PRINTS database does not have the HMM of the protein.
+
+7FE8SFRDOXIN is a 3-element fingerprint that provides a signature for 7Fe ferredoxins. The fingerprint was derived from an initial alignment of 2 sequences: motif 1 contains 2 of 3 invariant Cys residues contributing to the 3Fe-4S cluster, which is located upstream from the 4Fe-4S domain; motif 2 contains the first invariant Cys of the 4Fe-4S cluster; and motif 3 contains 3 invariant cysteines of the 4Fe-4S cluster and one Cys ligand of its downstream 3Fe-4S counterpart (see scheme above).
+
+- Pfam: PF00037: Fer4, which is the 4Fe-4S motif 1
+
+```bash
+cat STRAINS/Pseudom_aeru_PAO1/*.tsv |
+    grep "IPR000813"
+# this step will provide you all the 7Fe ferredoxin info in the previous analyze
+# the 7Fe ferredoxin was recorded in the PRINTS database
+
+mkdir -p Ferr/HMM
+
+curl -L https://pfam.xfam.org/family/PF00037/hmm > Ferr/HMM/Fer4.hmm
+
+E_VALUE=1e-20
+for domain in Fer4; do
+    >&2 echo "==> domain [${domain}]"
+
+    if [ -e Rubr/${domain}.replace.tsv ]; then
+        continue;
+    fi
+
+    for ORDER in $(cat order.lst); do
+        >&2 echo "==> ORDER [${ORDER}]"
+
+        cat taxon/${ORDER} |
+            parallel --no-run-if-empty --linebuffer -k -j 8 "
+                gzip -dcf ASSEMBLY/{}/*_protein.faa.gz |
+                    hmmsearch -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw Ferr/HMM/${domain}.hmm - |
+                    grep '>>' |
+                    perl -nl -e '
+                        m{>>\s+(\S+)} or next;
+                        \$n = \$1;
+                        \$s = \$n;
+                        \$s =~ s/\.\d+//;
+                        printf qq{%s\t%s_%s\n}, \$n, {}, \$s;
+                    '
+            "
+    done \
+        > Ferr/${domain}.replace.tsv
+
+    >&2 echo
+done
+
+
 ```
