@@ -2,7 +2,11 @@
 
 This markdown is to record my study of teacher's [Pseudomonas.md](https://github.com/wang-q/withncbi/blob/master/pop/Pseudomonas.md).
 
-Before getting start, the Taxonomy is very important for extracting those strains from all ranks.
+Before getting start, there is a little background information for better understanding the following processes.
+
+## Background info
+
+- **Taxonomy**
 
 The basic taxonomy ranks are here:
 
@@ -11,11 +15,19 @@ The basic taxonomy ranks are here:
 | Domains | Kingdoms | Phyla  | Classes | Orders | Families | Genera | Species |
 | 域       | 界        | 门      | 纲       | 目      | 科        | 属      | 种       |
 
-**Another tips**:
+**Knowledge Point**:
 
 [Back-formation](https://en.wiktionary.org/wiki/Appendix:Glossary#back-formation): A term formed by removing an apparent or real prefix or suffix from an older term; just shortens a word without changing.
 
 Taxon is back-formation from taxonomy. And its plural format is taxa.
+
+- **Prokaryotic RefSeq Genomes**
+
+[Prokaryotic RefSeq Genomes](https://www.ncbi.nlm.nih.gov/refseq/about/prokaryotes/) included archaeal and bacterial genome assemblies which meet sequence and annotation quality criteria. There are different level for you to understand.
+
+1. RefSeq: as mentioned above, included genome assemblies that meet quality criteria.
+2. Reference genomes: genome assemblies that are annotated and updated by the assembly submitters and chosen by the RefSeq curatorial staff based on their quality and importance to the community as anchors for the analysis of other genomes in their taxonomic group. Reference genomes are annotated with YP_ or NP_protein accessions.
+3. Representative genomes: for species without a reference genome, one assembly per defined species is selected as representative.
 
 - **Markdown goal**:
 
@@ -381,7 +393,7 @@ GENUS=$(
         sed 's/,$//' # remove the last ','
 )
 
-# extract RefSeq from all genera
+# extract reference genome from all genera
 echo "
 .headers ON
 
@@ -415,7 +427,7 @@ cat reference.tsv |
 # nwr append: append phylum and class to the tsv
 ```
 
-RefSeq:
+Reference genome:
 
 | #tax_id | organism_name                                                    | phylum                               |
 |---------|------------------------------------------------------------------|--------------------------------------|
