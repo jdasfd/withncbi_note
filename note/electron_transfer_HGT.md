@@ -9,6 +9,14 @@ cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
 #Reference Genome,15
 ```
 
+## Background info
+
+`hmmsearch`: Search a protein profile HMM against a protein sequence database.
+
+`hmmscan`: Search a protein sequence against a protein profile HMM database.
+
+That is the difference of the two methods.
+
 ## Proteins info
 
 The two proteins were selected from my teacher's protocol in [Pseudomonas.md](Pseudomonas.md). The link is directed to my study records. You can find the table [here](Pseudomonas.md#interproscan-on-all-proteins-of-typical-strains)
@@ -29,9 +37,11 @@ The two proteins were selected from my teacher's protocol in [Pseudomonas.md](Ps
 
 In PIRSF database, the Pfam domain was contained, so I used the Pfam HMM.
 
-The goal of the step is to search target protein from each strain.
-
 ### hmmsearch for Rubredoxin
+
+- `hmmsearch` for Rubredoxin domains in each strain
+
+The goal of the step is to search target protein from each strain according to HMM.
 
 ```bash
 cd /mnt/e/data/Pseudomonas
@@ -39,7 +49,7 @@ cd /mnt/e/data/Pseudomonas
 mkdir -p Rubr/HMM
 
 curl -L https://pfam.xfam.org/family/PF00301/hmm > Rubr/HMM/Rubr.hmm
-curl -L http://www.pantherdb.org/panther/exportHmm.jsp?acc=PTHR47627 > Rubr/HMM/PTHR47627.hmm
+curl -L https://www.pantherdb.org/panther/exportHmm.jsp?acc=PTHR47627 > Rubr/HMM/PTHR47627.hmm
 
 # using Rubredoxin.hmm to search in each strains
 E_VALUE=1e-20
@@ -107,7 +117,7 @@ cat Rubr/Rubr.replace.tsv | grep -v 'GCF'
 #YP_002517953.1  Cau_vib_NA1000_YP_002517953
 ```
 
-### Counting copy of each strain
+- Counting copy of each strain
 
 ```bash
 cd /mnt/e/data/Pseudomonas
@@ -140,54 +150,75 @@ cat strains.taxon.tsv |
     tsv-join -H --filter-file Rubr/strains.copy.tsv -k strains --append-fields copy_num \
     > Rubr/species.copy.tsv
 
+# species with Rubredoxin more than 1 copy
+cat Rubr/species.copy.tsv |
+    tsv-filter -H --ge copy_num:2 |
+    tsv-select -f 2 |
+    tsv-summarize -H -g species --count \
+    > Rubr/species.2copy.tsv
 
+cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
+    sed -e '1d' |
+    tsv-select -d, -f 3 |
+    nwr append stdin -r species |
+    tsv-summarize -g 2 --count \
+    > Rubr/species.count.tsv
+
+# all strains are 2 copy in a species
+tsv-join --filter-file Rubr/species.count.tsv \
+-k 1 --append-fields 2 Rubr/species.2copy.tsv |
+    tsv-filter --ff-eq 2:3
+#Acidihalobacter yilgarnensis    1       1
+#Alkalilimnicola ehrlichii       1       1
+#Legionella longbeachae  1       1
+#Legionella sainthelensi 1       1
+#Methylocaldum marinum   1       1
+#Methylogaea oryzae      1       1
+#Methylomicrobium album  1       1
+#Methylomonas denitrificans      1       1
+#Methylomonas koyamae    1       1
+#Methylomonas methanica  1       1
+#Methylotuvimicrobium alcaliphilum       1       1
+#Methylotuvimicrobium buryatense 1       1
+#Methylovulum psychrotolerans    1       1
+#Pseudomonas aeruginosa  391     391
+#Pseudomonas alcaligenes 3       3
+#Pseudomonas citronellolis       2       2
+#Pseudomonas knackmussii 2       2
+#Pseudomonas lalkuanensis        2       2
+#Pseudomonas otitidis    3       3
+#Pseudomonas sessilinigenes      2       2
+#Pseudoxanthomonas spadix        1       1
+#Spiribacter curvatus    1       1
+#Sulfurivermis fontis    1       1
+#Thioalkalivibrio sulfidiphilus  1       1
 ```
 
-### Reference 
+- Build tree by `iTOL` online
+
+The previous step provide us the list of all more than 1 copy strains among the species. According to the purpose is to check the 2 copy original in Pseudomonas, we 
 
 ```bash
 cd /mnt/e/data/Pseudomonas
 
-mkdir -p Rubr/tree
+# provide iTOL an TXT annotation file to change color
+# genus of Pseudomonas will be colored by red
+cat strains.taxon.tsv |
+    tsv-select -f 1,4 |
+    tsv-filter --str-in-fld 2:Pseudomonas |
+    tsv-select -f 1 |
+    awk '{print $0"\tlabel\t#f44336"}' \
+    > Rubr/tree/strains.label.txt
 
-Rscript -e '
-library(dplyr)
-library(ggtree)
-gtree=read.tree("/tree/bac120.reroot.newick")
-ptree=read.tree("/Rubr/Rubr.reroot.newick")
-p1 <- ggtree(gtree)
-p2 <- ggtree(ptree)
-
-d1 <- p1$data
-d2 <- p2$data
-
-d2$x
-'
-
-library(dplyr)
-library(ggtree)
-tree1=read.tree("bac120.model.reroot.newick")
-tree2=read.tree("bac120.protein.newick")
-p1 <- ggtree(tree1)
-p2 <- ggtree(tree2)
-
-d1 <- p1$data
-d2 <- p2$data
-
-d2$x <- max(d2$x) - d2$x + max(d1$x) + 1 #翻转第二棵树
-d2$y <- d2$y + 8 #将第二棵树向上移动对齐
-p3 <- ggtree::rotate(p1,29) #旋转node，使两棵树拓扑结构一致
-
-pp <- p3 + geom_tiplab(offset=0.05) + geom_treescale()+ geom_highlight(node=25,fill="red")+ geom_tree(data=d2) + geom_tiplab(data = d2, hjust=1, offset =-0.05)+geom_treescale(x=2)
-
-#geom_tiplab(offset=0.05) 添加label，offset：label与树枝末端距离
-#geom_treescale() #添加表尺
-#geom_highlight(node=25,fill="red") #添加红色区域
+(echo -e "TREE_COLORS\nSPEARATOR TAB\nDATA" && cat Rubr/tree/strains.label.txt) \
+    > temp && mv temp Rubr/tree/strains.label.txt
 ```
 
-## Compare protein seqs with TIGRFAM
+### Compare protein seqs with TIGRFAM using hmmscan
 
 TIGRFAM database could be seen in [hmm.md](hmm.md)
+
+The previous step: [hmmsearch for Rubredoxin](#hmmsearch-for-rubredoxin) used the HMM of Rubredoxin domain to search against strain protein files and finally got the 
 
 ```bash
 cd /mnt/e/data/Pseudomonas
@@ -203,34 +234,34 @@ hmmpress Rubr/HMM/PGAP.hmm
 # faops extract protein seq
 faops some PROTEINS/all.replace.fa <(tsv-select -f 2 Rubr/Rubredoxin.replace.tsv) Rubr/Rubr.fa
 
-# using protein seqs to scan directly in TIGRFAM database
+# using protein seqs to scan against HMM database directly in TIGRFAM database
 E_VALUE=1e-10
-for NAME in Rubr; do
-    >&2 echo "==> Protein [${NAME}]"
-        if [ ! -s ${NAME}/HMM/TIGRFAM.hmm ]; then
+for domain in Rubr PTHR47627; do
+    >&2 echo "==> Domain [${domain}]"
+        if [ ! -s Rubr/HMM/TIGRFAM.hmm ]; then
         echo no TIGRFAM
         exit
         fi
     
     hmmscan --cpu 4 -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw \
-        -o ${NAME}/${NAME}.tigrfam.txt --tblout ${NAME}/${NAME}.tigrfam.tbl \
-        ${NAME}/HMM/TIGRFAM.hmm ${NAME}/${NAME}.fa
+        -o Rubr/${domain}.tigrfam.txt --tblout Rubr/${domain}.tigrfam.tbl \
+        Rubr/HMM/TIGRFAM.hmm Rubr/${domain}.fa
     
     echo hmmscan complete
 done
 
 # using protein seqs to scan directly in PGAP database (included TIGR)
 E_VALUE=1e-10
-for NAME in Rubr; do
-    >&2 echo "==> Protein [${NAME}]"
-        if [ ! -s ${NAME}/HMM/PGAP.hmm ]; then
+for domain in Rubr PTHR47627; do
+    >&2 echo "==> Domain [${domain}]"
+        if [ ! -s Rubr/HMM/PGAP.hmm ]; then
         echo no PGAP
         exit
         fi
     
-    hmmscan --cpu 6 -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw \
-        -o ${NAME}/${NAME}.pgap.txt --tblout ${NAME}/${NAME}.pgap.tbl \
-        ${NAME}/HMM/PGAP.hmm ${NAME}/${NAME}.fa
+    hmmscan --cpu 4 -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw \
+        -o Rubr/${domain}.pgap.txt --tblout Rubr/${domain}.pgap.tbl \
+        Rubr/HMM/PGAP.hmm Rubr/${domain}.fa
     
     echo hmmscan complete
 done
@@ -254,7 +285,6 @@ cat Rubr/Rubr.tigrfam.tsv |
     tsv-filter --le 4:1e-50 |
     wc -l
 ```
-
 
 ## IPR000813 - 7Fe ferredoxin
 
@@ -305,6 +335,4 @@ for domain in Fer4; do
 
     >&2 echo
 done
-
-
 ```
