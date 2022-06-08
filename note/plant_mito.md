@@ -58,3 +58,51 @@ cat refseq_id_seq.csv |
 cat id_seq.tsv | grep -v "^#" | wc -l
 #13200
 ```
+
+### Restrict taxonomy ids to green plants
+
+```txt
+Eukaryota (2759)
+    Viridiplantae (33090) # 绿色植物界
+        Chlorophyta (3041) # 绿藻门
+        Streptophyta (35493) # 链型植物门
+```
+
+All living green plants belong to the major phylums including Streptophyta and Chlorophyta.
+
+```bash
+cd /mnt/e/data/mito/GENOMES
+
+# Viridiplantae 33090
+echo -e '#tax_id\taccession' > plant_id_seq.tsv # add headline
+cat id_seq.tsv |
+    nwr restrict 33090 -f stdin -c 1 \
+    >> plant_id_seq.tsv
+
+cat plant_id_seq.tsv | grep -v "^#" | wc -l
+#414
+
+# find repeated tax_id
+cat plant_id_seq.tsv |
+    cut -f 1 |
+    sort -n |
+    tsv-uniq --number --repeated |
+    nwr append stdin
+#3659    2       Cucumis sativus
+#3659    3       Cucumis sativus
+#3708    2       Brassica napus
+#51329   2       Polytomella parva
+#351366  2       Polytomella piriformis
+# tsv-uniq --repeated: output only lines that are repeated (based on the key)
+```
+
+Look inside `plant_id_seq.tsv` and remove redundancies
+
+```bash
+# Cucumis sativus has 3 chromosomes
+# Brassica napus linear plasmid NC_004946
+# Polytomella parva has 2 chromosomes
+# Polytomella sp. SAG 63-10 has 2 chromosomes
+
+sed -i".bak" "/,NC_004946$/d" plant_id_seq.csv # Brassica napus
+```
