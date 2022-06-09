@@ -11,6 +11,21 @@ cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
 
 ## Background info
 
+### Software
+
+- Install `nwr` and create a local taxonomy and assembly database.
+
+```bash
+brew install wang-q/tap/nwr # 0.5.5 or above
+brew install sqlite         # 3.34 or above
+
+nwr download
+nwr txdb
+
+nwr ardb
+nwr ardb --genbank
+```
+
 `hmmsearch`: Search a protein profile HMM against a protein sequence database.
 
 `hmmscan`: Search a protein sequence against a protein profile HMM database.
@@ -82,6 +97,7 @@ for domain in Rubr PTHR47627; do
     >&2 echo
 done
 
+# 2 protein replace file intersection
 tsv-join Rubr/Rubr.replace.tsv \
     -f Rubr/PTHR47627.replace.tsv \
     > Rubr/Rubredoxin.replace.tsv
@@ -104,22 +120,16 @@ nw_reroot Rubr/Rubr.aln.newick $(nw_labels Rubr/Rubr.aln.newick | grep -E "Bac_s
     > Rubr/Rubr.reroot.newick
 
 # Rubredoxin among all reference genomes
-cat Rubr/Rubr.replace.tsv | grep -v 'GCF'
+cat Rubr/Rubredoxin.replace.tsv | grep -v 'GCF'
 #YP_004994544.1  Acin_pittii_PHEA_2_YP_004994544
 #NP_820858.1     Co_burn_RSA_493_NP_820858
-#NP_417190.1     Es_coli_K_12_MG1655_NP_417190
-#NP_311593.1     Es_coli_O157_H7_Sakai_NP_311593
-#YP_005228417.1  Kle_pneumon_pneumoniae_HS11286_YP_005228417
-#NP_461761.1     Salm_enterica_enterica_Typhimurium_LT2_NP_461761
-#NP_708517.1     Shig_fle_2a_301_NP_708517
 #NP_254038.1     Pseudom_aeru_PAO1_NP_254038
 #NP_254037.1     Pseudom_aeru_PAO1_NP_254037
 #YP_002517953.1  Cau_vib_NA1000_YP_002517953
 #NP_217767.1     My_tube_H37Rv_NP_217767
-#NP_217768.1     My_tube_H37Rv_NP_217768
 ```
 
-- Counting copy of each strain
+- Counting copies of each strain
 
 ```bash
 cd /mnt/e/data/Pseudomonas
@@ -196,31 +206,13 @@ tsv-join --filter-file Rubr/species.count.tsv \
 #Thioalkalivibrio sulfidiphilus  1       1
 ```
 
-- Build tree by `iTOL` online
-
-The previous step provide us the list of all more than 1 copy strains among the species. According to the purpose, the protein tree and species tree are built and are compared to find out whether the topological structure of two trees are different.
-
-```bash
-cd /mnt/e/data/Pseudomonas
-
-# provide iTOL an TXT annotation file to change color
-# genus of Pseudomonas will be colored by red
-cat strains.taxon.tsv |
-    tsv-select -f 1,4 |
-    tsv-filter --str-in-fld 2:Pseudomonas |
-    tsv-select -f 1 |
-    awk '{print $0"\tlabel\t#f44336"}' \
-    > Rubr/tree/strains.label.txt
-
-(echo -e "TREE_COLORS\nSPEARATOR TAB\nDATA" && cat Rubr/tree/strains.label.txt) \
-    > temp && mv temp Rubr/tree/strains.label.txt
-```
-
 ### Compare protein seqs with TIGRFAM using hmmscan
 
 TIGRFAM database could be seen in [hmm.md](hmm.md)
 
-The previous step: [hmmsearch for Rubredoxin](#hmmsearch-for-rubredoxin) used the HMM of Rubredoxin domain to search against strain protein files and finally got the 
+The previous step: [hmmsearch for Rubredoxin](#hmmsearch-for-rubredoxin) used the HMMs of Rubredoxin domain to search against strain protein files and finally got all proteins with that domain. This step is adopted to exclude those proteins with the domain but not our targets.
+
+- `hmmscan` for strains filtering
 
 ```bash
 cd /mnt/e/data/Pseudomonas
@@ -292,13 +284,154 @@ cat Rubr/Rubr.pgap.tbl |
     ' > Rubr/Rubr.pgap.tsv
 
 cat Rubr/Rubr.pgap.tsv |
-    tsv-filter --le 5:1e-50 |
+    tsv-select -f 1 |
+    tsv-uniq |
     wc -l
+#30
+# This means hmmscan will give you more than 1 domains
+
+cat Rubr/Rubr.fa | grep '^>' | wc -l
+#1990
+# Total 1990 protein seqs were used for hmmscan
+
+cat Rubr/Rubr.pgap.tsv | grep -v '^#' | wc -l
+#2238
+# Got 2238 lines, one protein may had more than 1 hit by hmmscan
 
 cat Rubr/Rubr.pgap.tsv |
     tsv-select -f 3 |
     tsv-uniq |
     wc -l
+#1983
+# Got 1983 results
+
+cat Rubr/Rubr.pgap.tsv | tsv-select -f 3 | tsv-uniq --repeated
+#Alk_ehr_MLHE_1_GCF_000014785_1_WP_011628506
+#Alt_mac_GCF_903772925_1_WP_179983007
+#Halot_nea_c2_GCF_000024765_1_WP_012825058
+#Mora_cat_GCF_000766665_1_WP_003666012
+#Mora_cat_GCF_002073215_2_WP_063453878
+#Mora_cat_GCF_003443915_1_WP_003667335
+#Mora_cat_GCF_003443975_1_WP_117905972
+#Mora_cat_GCF_003971285_1_WP_003666012
+#Mora_cat_GCF_003971345_1_WP_003666012
+#Mora_cat_GCF_003971365_1_WP_003666012
+#Mora_cat_GCF_900476075_1_WP_063453878
+#Mora_osl_GCF_002753715_1_WP_100271360
+#Thioa_versu_GCF_001020955_1_WP_047251304
+# with more than 1 hit after hmmscan
+
+cat Rubr/Rubr.pgap.tsv |
+    tsv-summarize -g 1 --count |
+    sort -r -nk 2,2 |
+    head -n 1
+#PRK05452.1      1973
+# PRK05452.1: anaerobic nitric oxide reductase flavorubredoxin (Conserved Protein Domain Family in NCBI)
+
+# keep the minimum E-value strain-protein id and move them into a LIST
+cat Rubr/Rubr.pgap.tsv |
+    tsv-select -f 3,5 |
+    tsv-summarize -g 1 --min 2 |
+    cut -f 1 \
+    > Rubr/Rubr.Emin.lst
+
+wc -l Rubr/Rubr.Emin.lst
+#1983 Rubr/Rubr.Emin.lst
+```
+
+- Counting copies of each strain
+
+```bash
+cat PROTEINS/all.strain.tsv |
+    sed '1d' |
+    grep -F -f <(cut -f 2 Rubr/Rubredoxin.replace.tsv) |
+    tsv-join --filter-file Rubr/Rubr.Emin.lst -k 1 |
+    cut -f 2 |
+    tsv-summarize -g 1 --count \
+    > Rubr/strains.Emin.copy.tsv
+
+wc -l Rubr/strains.Emin.copy.tsv
+#1502 Rubr/strains.Emin.copy.tsv
+# all strains passed up to 1952, so there are strains missing the Rubredoxin
+
+cat strains.lst |
+    grep -v -F -f <(cat Rubr/strains.Emin.copy.tsv | cut -f 1) |
+    awk '{print $0"\t"0}' \
+    >> Rubr/strains.Emin.copy.tsv
+
+wc -l Rubr/strains.Emin.copy.tsv
+#1952 Rubr/strains.Emin.copy.tsv
+
+(echo -e "strains\tcopy_num" && cat Rubr/strains.Emin.copy.tsv) > \
+    temp && mv temp Rubr/strains.Emin.copy.tsv
+
+cat strains.taxon.tsv |
+    cut -f 1,4 |
+    sed '1istrains\tspecies' |
+    tsv-join -H --filter-file Rubr/strains.Emin.copy.tsv -k strains --append-fields copy_num \
+    > Rubr/species.Emin.copy.tsv
+
+# species with Rubredoxin more than 1 copy
+cat Rubr/species.Emin.copy.tsv |
+    tsv-filter -H --ge copy_num:2 |
+    tsv-select -f 2 |
+    tsv-summarize -H -g species --count \
+    > Rubr/species.Emin.2copy.tsv
+
+cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
+    sed -e '1d' |
+    tsv-select -d, -f 3 |
+    nwr append stdin -r species |
+    tsv-summarize -g 2 --count \
+    > Rubr/species.Emin.count.tsv
+
+# all strains are 2 copy in a species
+tsv-join --filter-file Rubr/species.Emin.count.tsv \
+-k 1 --append-fields 2 Rubr/species.Emin.2copy.tsv |
+    tsv-filter --ff-eq 2:3
+#Acidihalobacter yilgarnensis    1       1
+#Alkalilimnicola ehrlichii       1       1
+#Legionella longbeachae  1       1
+#Legionella sainthelensi 1       1
+#Methylocaldum marinum   1       1
+#Methylogaea oryzae      1       1
+#ethylomicrobium album  1       1
+#Methylomonas denitrificans      1       1
+#Methylomonas koyamae    1       1
+#Methylomonas methanica  1       1
+#Methylotuvimicrobium alcaliphilum       1       1
+#Methylotuvimicrobium buryatense 1       1
+#Pseudomonas aeruginosa  391     391
+#Pseudomonas alcaligenes 3       3
+#Pseudomonas citronellolis       2       2
+#Pseudomonas knackmussii 2       2
+#Pseudomonas lalkuanensis        2       2
+#Pseudomonas otitidis    3       3
+#Pseudomonas sessilinigenes      2       2
+#Pseudoxanthomonas spadix        1       1
+#Spiribacter curvatus    1       1
+#Sulfurivermis fontis    1       1
+#Thioalkalivibrio sulfidiphilus  1       1
+```
+
+- Build tree by `iTOL` online
+
+The previous step provide us the list of all more than 1 copy strains among the species. According to the purpose, the protein tree and species tree are built and are compared to find out whether the topological structure of two trees are different.
+
+```bash
+cd /mnt/e/data/Pseudomonas
+
+# provide iTOL an TXT annotation file to change color
+# genus of Pseudomonas will be colored by red
+cat strains.taxon.tsv |
+    tsv-select -f 1,4 |
+    tsv-filter --str-in-fld 2:Pseudomonas |
+    tsv-select -f 1 |
+    awk '{print $0"\tlabel\t#f44336"}' \
+    > Rubr/tree/strains.label.txt
+
+(echo -e "TREE_COLORS\nSPEARATOR TAB\nDATA" && cat Rubr/tree/strains.label.txt) \
+    > temp && mv temp Rubr/tree/strains.label.txt
 ```
 
 ## IPR000813 - 7Fe ferredoxin
