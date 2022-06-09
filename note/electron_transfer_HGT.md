@@ -414,6 +414,39 @@ tsv-join --filter-file Rubr/species.Emin.count.tsv \
 #Thioalkalivibrio sulfidiphilus  1       1
 ```
 
+### Multiple rounds using `blastp`
+
+The step is adopted for blasting all proteins (filtered by `hmmscan`) against all protein seqs again to extract those proteins missed during `hmmsearch`. The goal is to acquire proteins directly from sequences (not just relied on `hmmsearch`).
+
+```bash
+cd /mnt/e/data/Pseudomonas
+mkdir -p Rubr/blastp
+
+# remove null character
+cat PROTEINS/all.replace.fa |
+    sed 's/\x0//g' \
+    > Rubr/blastp/all.db.fa
+
+# extract seqs with minimum E-value
+faops some PROTEINS/all.replace.fa Rubr/Rubr.Emin.lst Rubr/blastp/Rubr.Emin.fa
+faops size Rubr/blastp/Rubr.Emin.fa | wc -l
+#1983
+
+# makeblastdb - all pro_seqs
+makeblastdb -in Rubr/blastp/all.db.fa -dbtype prot -out Rubr/blastp/all_pro
+
+# blastp 1st
+blastp -db Rubr/blastp/all_pro -query Rubr/blastp/Rubr.Emin.fa \
+-out Rubr/blastp/Rubr.1st.tsv -outfmt 6 -evalue 1e-5 -num_threads 6
+
+cat Rubr/blastp/Rubr.1st.tsv |
+    cut -f 2 |
+    sort -n |
+    uniq |
+    wc -l
+#3413
+```
+
 - Build tree by `iTOL` online
 
 The previous step provide us the list of all more than 1 copy strains among the species. According to the purpose, the protein tree and species tree are built and are compared to find out whether the topological structure of two trees are different.
