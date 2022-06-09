@@ -115,6 +115,8 @@ cat Rubr/Rubr.replace.tsv | grep -v 'GCF'
 #NP_254038.1     Pseudom_aeru_PAO1_NP_254038
 #NP_254037.1     Pseudom_aeru_PAO1_NP_254037
 #YP_002517953.1  Cau_vib_NA1000_YP_002517953
+#NP_217767.1     My_tube_H37Rv_NP_217767
+#NP_217768.1     My_tube_H37Rv_NP_217768
 ```
 
 - Counting copy of each strain
@@ -196,7 +198,7 @@ tsv-join --filter-file Rubr/species.count.tsv \
 
 - Build tree by `iTOL` online
 
-The previous step provide us the list of all more than 1 copy strains among the species. According to the purpose is to check the 2 copy original in Pseudomonas, we 
+The previous step provide us the list of all more than 1 copy strains among the species. According to the purpose, the protein tree and species tree are built and are compared to find out whether the topological structure of two trees are different.
 
 ```bash
 cd /mnt/e/data/Pseudomonas
@@ -236,35 +238,29 @@ faops some PROTEINS/all.replace.fa <(tsv-select -f 2 Rubr/Rubredoxin.replace.tsv
 
 # using protein seqs to scan against HMM database directly in TIGRFAM database
 E_VALUE=1e-10
-for domain in Rubr PTHR47627; do
-    >&2 echo "==> Domain [${domain}]"
-        if [ ! -s Rubr/HMM/TIGRFAM.hmm ]; then
-        echo no TIGRFAM
-        exit
-        fi
-    
-    hmmscan --cpu 4 -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw \
-        -o Rubr/${domain}.tigrfam.txt --tblout Rubr/${domain}.tigrfam.tbl \
-        Rubr/HMM/TIGRFAM.hmm Rubr/${domain}.fa
-    
+if [ ! -s Rubr/HMM/PGAP.hmm ]; then
+    echo no TIGRFAM
+    exit
+else
+    echo >&2 hmmscan start: Rubr
+    hmmscan --cpu 6 -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw \
+        -o Rubr/Rubr.tigrfam.txt --tblout Rubr/Rubr.tigrfam.tbl \
+        Rubr/HMM/TIGRFAM.hmm Rubr/Rubr.fa
     echo hmmscan complete
-done
+fi
 
 # using protein seqs to scan directly in PGAP database (included TIGR)
 E_VALUE=1e-10
-for domain in Rubr PTHR47627; do
-    >&2 echo "==> Domain [${domain}]"
-        if [ ! -s Rubr/HMM/PGAP.hmm ]; then
-        echo no PGAP
-        exit
-        fi
-    
-    hmmscan --cpu 4 -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw \
-        -o Rubr/${domain}.pgap.txt --tblout Rubr/${domain}.pgap.tbl \
-        Rubr/HMM/PGAP.hmm Rubr/${domain}.fa
-    
+if [ ! -s Rubr/HMM/PGAP.hmm ]; then
+    echo no PGAP
+    exit
+else
+    echo >&2 hmmscan start: Rubr
+    hmmscan --cpu 6 -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw \
+        -o Rubr/Rubr.pgap.txt --tblout Rubr/Rubr.pgap.tbl \
+        Rubr/HMM/PGAP.hmm Rubr/Rubr.fa
     echo hmmscan complete
-done
+fi
 
 # reformat and extract results from tbl
 cat Rubr/Rubr.tigrfam.tbl |
@@ -281,8 +277,27 @@ cat Rubr/Rubr.tigrfam.tbl |
     print join ("\t", @p);
     ' > Rubr/Rubr.tigrfam.tsv
 
-cat Rubr/Rubr.tigrfam.tsv |
-    tsv-filter --le 4:1e-50 |
+cat Rubr/Rubr.pgap.tbl |
+    grep -v '^#' |
+    perl -nl -e '$string = $_;@p = ();
+    for ($i = 1; $i <= 19; $i++){
+    if($i != 19){
+        $string=~s/^(.+?)\s+//;
+        push(@p, $1);
+    }
+    else{
+        push(@p, $string);
+    }}
+    print join ("\t", @p);
+    ' > Rubr/Rubr.pgap.tsv
+
+cat Rubr/Rubr.pgap.tsv |
+    tsv-filter --le 5:1e-50 |
+    wc -l
+
+cat Rubr/Rubr.pgap.tsv |
+    tsv-select -f 3 |
+    tsv-uniq |
     wc -l
 ```
 
