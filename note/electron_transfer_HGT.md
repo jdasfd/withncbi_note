@@ -436,15 +436,22 @@ faops size Rubr/blastp/Rubr.Emin.fa | wc -l
 makeblastdb -in Rubr/blastp/all.db.fa -dbtype prot -out Rubr/blastp/all_pro
 
 # blastp 1st
+E_VALUE=1e-20
 blastp -db Rubr/blastp/all_pro -query Rubr/blastp/Rubr.Emin.fa \
--out Rubr/blastp/Rubr.1st.tsv -outfmt 6 -evalue 1e-5 -num_threads 6
+-out Rubr/blastp/Rubr.1st.tsv -outfmt 6 -evalue ${E_VALUE} -num_threads 6
 
 cat Rubr/blastp/Rubr.1st.tsv |
     cut -f 2 |
     sort -n |
     uniq |
     wc -l
-#3413
+#3260
+# after blastp, we scanned more proteins
+
+# extract seqs from 1st blastp result
+faops some PROTEINS/all.replace.fa <(cut -f 2 Rubr/blastp/Rubr.1st.tsv | sort -n | uniq) Rubr/blastp/Rubr.1st.fa
+faops size Rubr/blastp/Rubr.1st.fa | wc -l
+#
 ```
 
 - Build tree by `iTOL` online
