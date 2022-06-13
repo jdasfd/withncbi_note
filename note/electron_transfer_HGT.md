@@ -219,6 +219,7 @@ cd /mnt/e/data/Pseudomonas
 
 cat ~/data/HMM/TIGRFAM/HMM/*.HMM > Rubr/HMM/TIGRFAM.hmm
 cat ~/data/HMM/PGAP/HMM/hmm_PGAP/*.HMM > Rubr/HMM/PGAP.hmm
+cp ~/data/HMM/PFAM/*.hmm ~/data/HMM/PFAM/*.hmm.dat ~/data/HMM/PFAM/*.hmm.h* Rubr/HMM/
 
 # hmmpress to prepare an database
 hmmpress Rubr/HMM/TIGRFAM.hmm
@@ -228,35 +229,34 @@ hmmpress Rubr/HMM/PGAP.hmm
 # faops extract protein seq
 faops some PROTEINS/all.replace.fa <(tsv-select -f 2 Rubr/Rubredoxin.replace.tsv) Rubr/Rubr.fa
 
-# using protein seqs to scan against HMM database directly in TIGRFAM database
+# using protein seqs to scan directly in PFAM database
 E_VALUE=1e-10
-if [ ! -s Rubr/HMM/PGAP.hmm ]; then
-    echo no TIGRFAM
+if [ ! -s Rubr/HMM/Pfam-A.hmm ]; then
+    echo no Pfam
+#if [ ! -s Rubr/HMM/PGAP.hmm ]; then
+#    echo no PGAP
+#if [ ! -s Rubr/HMM/PGAP.hmm ]; then
+#    echo no TIGRFAM
     exit
 else
     echo >&2 hmmscan start: Rubr
     hmmscan --cpu 6 -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw \
-        -o Rubr/Rubr.tigrfam.txt --tblout Rubr/Rubr.tigrfam.tbl \
-        Rubr/HMM/TIGRFAM.hmm Rubr/Rubr.fa
+        -o Rubr/Rubr.pfam.txt --tblout Rubr/Rubr.pfam.tbl \
+        Rubr/HMM/Pfam-A.hmm Rubr/Rubr.fa
     echo hmmscan complete
-fi
-
-# using protein seqs to scan directly in PGAP database (included TIGR)
-E_VALUE=1e-10
-if [ ! -s Rubr/HMM/PGAP.hmm ]; then
-    echo no PGAP
-    exit
-else
-    echo >&2 hmmscan start: Rubr
-    hmmscan --cpu 6 -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw \
-        -o Rubr/Rubr.pgap.txt --tblout Rubr/Rubr.pgap.tbl \
-        Rubr/HMM/PGAP.hmm Rubr/Rubr.fa
-    echo hmmscan complete
+#    hmmscan --cpu 6 -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw \
+#        -o Rubr/Rubr.pgap.txt --tblout Rubr/Rubr.pgap.tbl \
+#        Rubr/HMM/PGAP.hmm Rubr/Rubr.fa
+#    echo hmmscan complete
+#    hmmscan --cpu 6 -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw \
+#        -o Rubr/Rubr.tigrfam.txt --tblout Rubr/Rubr.tigrfam.tbl \
+#        Rubr/HMM/TIGRFAM.hmm Rubr/Rubr.fa
+#    echo hmmscan complete
 fi
 
 # reformat and extract results from tbl
-cat Rubr/Rubr.tigrfam.tbl |
-    grep '^TIGR' |
+cat Rubr/Rubr.pfam.tbl |
+    grep '^' |
     perl -nl -e '$string = $_;@p = ();
     for ($i = 1; $i <= 19; $i++){
     if($i != 19){
@@ -267,21 +267,7 @@ cat Rubr/Rubr.tigrfam.tbl |
         push(@p, $string);
     }}
     print join ("\t", @p);
-    ' > Rubr/Rubr.tigrfam.tsv
-
-cat Rubr/Rubr.pgap.tbl |
-    grep -v '^#' |
-    perl -nl -e '$string = $_;@p = ();
-    for ($i = 1; $i <= 19; $i++){
-    if($i != 19){
-        $string=~s/^(.+?)\s+//;
-        push(@p, $1);
-    }
-    else{
-        push(@p, $string);
-    }}
-    print join ("\t", @p);
-    ' > Rubr/Rubr.pgap.tsv
+    ' > Rubr/Rubr.pfam.tsv
 
 cat Rubr/Rubr.pgap.tsv |
     tsv-select -f 1 |
