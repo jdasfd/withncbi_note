@@ -173,6 +173,10 @@ cat Rubr/species.copy.tsv |
     tsv-summarize -H -g species --count \
     > Rubr/species.2copy.tsv
 
+cat Rubr/species.2copy.tsv | tsv-summarize -H --sum count
+#count_sum
+#503
+
 cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
     sed -e '1d' |
     tsv-select -d, -f 3 |
@@ -184,41 +188,43 @@ cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
 tsv-join --filter-file Rubr/species.count.tsv \
 -k 1 --append-fields 2 Rubr/species.2copy.tsv |
     tsv-filter --ff-eq 2:3 |
+    sed '1ispecies\tall_2_copy\tall_strains' |
     mlr --itsv --omd cat
 ```
 
-| Acidihalobacter aeolianus         | 1   | 1_2 |
-|-----------------------------------|-----|-----|
-| Acidihalobacter yilgarnensis      | 1   | 1   |
-| Alkalilimnicola ehrlichii         | 1   | 1   |
-| Azotobacter chroococcum           | 3   | 3   |
-| Legionella longbeachae            | 1   | 1   |
-| Legionella sainthelensi           | 1   | 1   |
-| Marinobacter nauticus             | 2   | 2   |
-| Methylocaldum marinum             | 1   | 1   |
-| Methylogaea oryzae                | 1   | 1   |
-| Methylomicrobium album            | 1   | 1   |
-| Methylomonas denitrificans        | 1   | 1   |
-| Methylomonas koyamae              | 1   | 1   |
-| Methylomonas methanica            | 1   | 1   |
-| Methylomonas rhizoryzae           | 1   | 1   |
-| Methylotuvimicrobium alcaliphilum | 1   | 1   |
-| Methylotuvimicrobium buryatense   | 1   | 1   |
-| Methylovulum psychrotolerans      | 1   | 1   |
-| Moraxella catarrhalis             | 16  | 16  |
-| Mycobacterium tuberculosis        | 1   | 1   |
-| Plesiomonas shigelloides          | 1   | 1   |
-| Pseudomonas aeruginosa            | 391 | 391 |
-| Pseudomonas alcaligenes           | 3   | 3   |
-| Pseudomonas citronellolis         | 2   | 2   |
-| Pseudomonas knackmussii           | 2   | 2   |
-| Pseudomonas lalkuanensis          | 2   | 2   |
-| Pseudomonas otitidis              | 3   | 3   |
-| Pseudomonas sessilinigenes        | 2   | 2   |
-| Pseudoxanthomonas spadix          | 1   | 1   |
-| Spiribacter curvatus              | 1   | 1   |
-| Sulfurivermis fontis              | 1   | 1   |
-| Thioalkalivibrio sulfidiphilus    | 1   | 1   |
+| species                           | all_2_copy | all_strains |
+|-----------------------------------|------------|-------------|
+| Acidihalobacter aeolianus         | 1          | 1           |
+| Acidihalobacter yilgarnensis      | 1          | 1           |
+| Alkalilimnicola ehrlichii         | 1          | 1           |
+| Azotobacter chroococcum           | 3          | 3           |
+| Legionella longbeachae            | 1          | 1           |
+| Legionella sainthelensi           | 1          | 1           |
+| Marinobacter nauticus             | 2          | 2           |
+| Methylocaldum marinum             | 1          | 1           |
+| Methylogaea oryzae                | 1          | 1           |
+| Methylomicrobium album            | 1          | 1           |
+| Methylomonas denitrificans        | 1          | 1           |
+| Methylomonas koyamae              | 1          | 1           |
+| Methylomonas methanica            | 1          | 1           |
+| Methylomonas rhizoryzae           | 1          | 1           |
+| Methylotuvimicrobium alcaliphilum | 1          | 1           |
+| Methylotuvimicrobium buryatense   | 1          | 1           |
+| Methylovulum psychrotolerans      | 1          | 1           |
+| Moraxella catarrhalis             | 16         | 16          |
+| Mycobacterium tuberculosis        | 1          | 1           |
+| Plesiomonas shigelloides          | 1          | 1           |
+| Pseudomonas aeruginosa            | 391        | 391         |
+| Pseudomonas alcaligenes           | 3          | 3           |
+| Pseudomonas citronellolis         | 2          | 2           |
+| Pseudomonas knackmussii           | 2          | 2           |
+| Pseudomonas lalkuanensis          | 2          | 2           |
+| Pseudomonas otitidis              | 3          | 3           |
+| Pseudomonas sessilinigenes        | 2          | 2           |
+| Pseudoxanthomonas spadix          | 1          | 1           |
+| Spiribacter curvatus              | 1          | 1           |
+| Sulfurivermis fontis              | 1          | 1           |
+| Thioalkalivibrio sulfidiphilus    | 1          | 1           |
 
 ### Compare protein seqs with PFAM using hmmscan
 
@@ -244,6 +250,11 @@ hmmpress Rubr/HMM/PGAP.hmm
 
 # faops extract protein seq
 faops some PROTEINS/all.replace.fa <(tsv-select -f 2 Rubr/Rubredoxin.replace.tsv) Rubr/Rubr.fa
+
+faops size Rubr/Rubr.fa |
+    tsv-summarize -g 2 --count |
+    tsv-sort -r -nk 1,1 |
+    mlr --itsv --omd cat
 
 # using protein seqs to scan directly in PFAM database
 E_VALUE=1e-10
@@ -285,58 +296,41 @@ cat Rubr/Rubr.pfam.tbl |
     print join ("\t", @p);
     ' > Rubr/Rubr.pfam.tsv
 
+faops size Rubr/Rubr.fa | wc -l
+#2089
+# Total 2089 proteins' seq contained Rubredoxin domain were used for hmmscan
+
+cat Rubr/Rubr.pfam.tsv | grep -v '^#' | wc -l
+#2272
+# Got 2272 lines, one protein may had more than 1 domain hit by hmmscan
+
+# other domains
 cat Rubr/Rubr.pfam.tsv |
     tsv-select -f 1 |
     tsv-uniq
 #Rubredoxin
 #Pyr_redox_2
 #Pyr_redox
-#Pyr_redox_3
 #Rbx_binding
+#DAO
+#Pyr_redox_3
+#Flavodoxin_1
+#Lactamase_B
 #Lycopene_cycl
-# This means hmmscan will give you more than 1 domains
-
-cat Rubr/Rubr.fa | grep '^>' | wc -l
-#1990
-# Total 1990 protein seqs were used for hmmscan
-
-cat Rubr/Rubr.pfam.tsv | grep -v '^#' | wc -l
-#2027
-# Got 2027 lines, one protein may had more than 1 hit by hmmscan
-
-cat Rubr/Rubr.pfam.tsv |
-    tsv-select -f 3 |
-    tsv-uniq |
-    wc -l
-#1990
-# All proteins completed hmmscan
-
-cat Rubr/Rubr.pfam.tsv | tsv-select -f 3 | tsv-uniq --repeated
-#Alk_ehr_MLHE_1_GCF_000014785_1_WP_011628506
-#Alt_mac_GCF_903772925_1_WP_179983007
-#Halot_nea_c2_GCF_000024765_1_WP_012825058
-#Mora_cat_GCF_000766665_1_WP_003666012
-#Mora_cat_GCF_002073215_2_WP_063453878
-#Mora_cat_GCF_003443915_1_WP_003667335
-#Mora_cat_GCF_003443975_1_WP_117905972
-#Mora_cat_GCF_003971285_1_WP_003666012
-#Mora_cat_GCF_003971345_1_WP_003666012
-#Mora_cat_GCF_003971365_1_WP_003666012
-#Mora_cat_GCF_900476075_1_WP_063453878
-#Mora_osl_GCF_002753715_1_WP_100271360
-#Thioa_versu_GCF_001020955_1_WP_047251304
-# with more than 1 hit after hmmscan
 
 cat Rubr/Rubr.pfam.tsv |
     tsv-summarize -g 1 --count |
     sort -r -nk 2,2
-#Rubredoxin      1990
-#Pyr_redox_2     13
-#Pyr_redox       13
-#Pyr_redox_3     9
-#Rbx_binding     1
+#Rubredoxin      2089
+#Flavodoxin_1    49
+#Pyr_redox_2     40
+#Pyr_redox       40
+#Pyr_redox_3     20
+#Lactamase_B     19
+#Rbx_binding     12
+#DAO     2
 #Lycopene_cycl   1
-# Got 1990 Rubredoxin = Rubr.fa num of seqs
+# Got 2089 Rubredoxin = Rubr.fa num of seqs
 
 # keep the minimum E-value strain-protein id and move them into a LIST
 cat Rubr/Rubr.pfam.tsv |
@@ -346,83 +340,65 @@ cat Rubr/Rubr.pfam.tsv |
     > Rubr/Rubr.Emin.lst
 
 wc -l Rubr/Rubr.Emin.lst
-#1990 Rubr/Rubr.Emin.lst
+#2089 Rubr/Rubr.Emin.lst
+# So after filtering, all proteins contained Rubredoxin domain and with the min E-value
 ```
 
-- Counting copies of each strain
+Protein length:
 
-```bash
-cat PROTEINS/all.strain.tsv |
-    sed '1d' |
-    grep -F -f <(cut -f 2 Rubr/Rubredoxin.replace.tsv) |
-    tsv-join --filter-file Rubr/Rubr.Emin.lst -k 1 |
-    cut -f 2 |
-    tsv-summarize -g 1 --count \
-    > Rubr/strains.Emin.copy.tsv
-
-wc -l Rubr/strains.Emin.copy.tsv
-#1502 Rubr/strains.Emin.copy.tsv
-# all strains passed up to 1952, so there are strains missing the Rubredoxin
-
-cat strains.lst |
-    grep -v -F -f <(cat Rubr/strains.Emin.copy.tsv | cut -f 1) |
-    awk '{print $0"\t"0}' \
-    >> Rubr/strains.Emin.copy.tsv
-
-wc -l Rubr/strains.Emin.copy.tsv
-#1952 Rubr/strains.Emin.copy.tsv
-
-(echo -e "strains\tcopy_num" && cat Rubr/strains.Emin.copy.tsv) > \
-    temp && mv temp Rubr/strains.Emin.copy.tsv
-
-cat strains.taxon.tsv |
-    cut -f 1,4 |
-    sed '1istrains\tspecies' |
-    tsv-join -H --filter-file Rubr/strains.Emin.copy.tsv -k strains --append-fields copy_num \
-    > Rubr/species.Emin.copy.tsv
-
-# species with Rubredoxin more than 1 copy
-cat Rubr/species.Emin.copy.tsv |
-    tsv-filter -H --ge copy_num:2 |
-    tsv-select -f 2 |
-    tsv-summarize -H -g species --count \
-    > Rubr/species.Emin.2copy.tsv
-
-cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
-    sed -e '1d' |
-    tsv-select -d, -f 3 |
-    nwr append stdin -r species |
-    tsv-summarize -g 2 --count \
-    > Rubr/species.Emin.count.tsv
-
-# all strains are 2 copy in a species
-tsv-join --filter-file Rubr/species.Emin.count.tsv \
--k 1 --append-fields 2 Rubr/species.Emin.2copy.tsv |
-    tsv-filter --ff-eq 2:3
-#Acidihalobacter yilgarnensis    1       1
-#Alkalilimnicola ehrlichii       1       1
-#Legionella longbeachae  1       1
-#Legionella sainthelensi 1       1
-#Methylocaldum marinum   1       1
-#Methylogaea oryzae      1       1
-#ethylomicrobium album  1       1
-#Methylomonas denitrificans      1       1
-#Methylomonas koyamae    1       1
-#Methylomonas methanica  1       1
-#Methylotuvimicrobium alcaliphilum       1       1
-#Methylotuvimicrobium buryatense 1       1
-#Pseudomonas aeruginosa  391     391
-#Pseudomonas alcaligenes 3       3
-#Pseudomonas citronellolis       2       2
-#Pseudomonas knackmussii 2       2
-#Pseudomonas lalkuanensis        2       2
-#Pseudomonas otitidis    3       3
-#Pseudomonas sessilinigenes      2       2
-#Pseudoxanthomonas spadix        1       1
-#Spiribacter curvatus    1       1
-#Sulfurivermis fontis    1       1
-#Thioalkalivibrio sulfidiphilus  1       1
-```
+| 507 | 1    |
+|-----|------|
+| 504 | 1    |
+| 498 | 1    |
+| 494 | 3    |
+| 493 | 1    |
+| 490 | 1    |
+| 488 | 1    |
+| 485 | 1    |
+| 484 | 1    |
+| 483 | 5    |
+| 482 | 17   |
+| 481 | 8    |
+| 480 | 5    |
+| 479 | 7    |
+| 477 | 2    |
+| 474 | 1    |
+| 469 | 1    |
+| 468 | 1    |
+| 462 | 18   |
+| 461 | 6    |
+| 460 | 2    |
+| 455 | 1    |
+| 445 | 4    |
+| 444 | 1    |
+| 411 | 1    |
+| 173 | 1    |
+| 98  | 1    |
+| 79  | 14   |
+| 76  | 6    |
+| 75  | 1    |
+| 74  | 4    |
+| 73  | 4    |
+| 72  | 6    |
+| 68  | 5    |
+| 66  | 1    |
+| 65  | 26   |
+| 64  | 5    |
+| 63  | 23   |
+| 62  | 4    |
+| 61  | 1    |
+| 60  | 4    |
+| 59  | 8    |
+| 58  | 16   |
+| 57  | 12   |
+| 56  | 38   |
+| 55  | 1241 |
+| 54  | 568  |
+| 53  | 1    |
+| 52  | 2    |
+| 51  | 1    |
+| 50  | 2    |
+| 48  | 3    |
 
 ### Multiple rounds using `blastp`
 
@@ -440,7 +416,7 @@ cat PROTEINS/all.replace.fa |
 # extract seqs with minimum E-value
 faops some PROTEINS/all.replace.fa Rubr/Rubr.Emin.lst Rubr/blastp/Rubr.Emin.fa
 faops size Rubr/blastp/Rubr.Emin.fa | wc -l
-#1983
+#2089
 
 # makeblastdb - all pro_seqs
 makeblastdb -in Rubr/blastp/all.db.fa -dbtype prot -out Rubr/blastp/all_pro
@@ -455,13 +431,12 @@ cat Rubr/blastp/Rubr.1st.tsv |
     sort -n |
     uniq |
     wc -l
-#3260
+#3830
 # after blastp, we scanned more proteins
 
 # extract seqs from 1st blastp result
 faops some PROTEINS/all.replace.fa <(cut -f 2 Rubr/blastp/Rubr.1st.tsv | sort -n | uniq) Rubr/blastp/Rubr.1st.fa
 faops size Rubr/blastp/Rubr.1st.fa | wc -l
-#
 ```
 
 - Build tree by `iTOL` online
