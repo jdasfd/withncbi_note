@@ -50,7 +50,7 @@ The two proteins were selected from my teacher's protocol in [Pseudomonas.md](Ps
 - Pfam: PF00301: Rubredoxin
 - Panther: PTHR47627: Rubredoxin
 
-In PIRSF database, the Pfam domain was contained, so I used the Pfam HMM.
+In PIRSF database, the same Pfam domain was contained, so I used the Pfam HMM.
 
 ### hmmsearch for Rubredoxin
 
@@ -64,11 +64,11 @@ cd /mnt/e/data/Pseudomonas
 mkdir -p Rubr/HMM
 
 curl -L https://pfam.xfam.org/family/PF00301/hmm > Rubr/HMM/Rubr.hmm
-curl -L https://www.pantherdb.org/panther/exportHmm.jsp?acc=PTHR47627 > Rubr/HMM/PTHR47627.hmm
+#curl -L https://www.pantherdb.org/panther/exportHmm.jsp?acc=PTHR47627 > Rubr/HMM/PTHR47627.hmm
 
 # using Rubredoxin.hmm to search in each strains
 E_VALUE=1e-20
-for domain in Rubr PTHR47627; do
+for domain in Rubr; do
     >&2 echo "==> domain [${domain}]"
 
     if [ -e Rubr/${domain}.replace.tsv ]; then
@@ -98,14 +98,12 @@ for domain in Rubr PTHR47627; do
 done
 
 # 2 protein replace file intersection
-tsv-join Rubr/Rubr.replace.tsv \
-    -f Rubr/PTHR47627.replace.tsv \
-    > Rubr/Rubredoxin.replace.tsv
+#tsv-join Rubr/Rubr.replace.tsv \
+#    -f Rubr/PTHR47627.replace.tsv \
+#    > Rubr/Rubredoxin.replace.tsv
 
-wc -l Rubr/*.tsv
-#  1997 Rubr/PTHR47627.replace.tsv
-#  2089 Rubr/Rubr.replace.tsv
-#  1990 Rubr/Rubredoxin.replace.tsv
+wc -l Rubr/Rubredoxin.replace.tsv
+#2089 Rubr/Rubredoxin.replace.tsv
 # remember that 1952 strains passed were obtained
 
 # extract all Rubr pro_seqs
@@ -123,10 +121,16 @@ nw_reroot Rubr/Rubr.aln.newick $(nw_labels Rubr/Rubr.aln.newick | grep -E "Bac_s
 cat Rubr/Rubredoxin.replace.tsv | grep -v 'GCF'
 #YP_004994544.1  Acin_pittii_PHEA_2_YP_004994544
 #NP_820858.1     Co_burn_RSA_493_NP_820858
+#NP_417190.1     Es_coli_K_12_MG1655_NP_417190
+#NP_311593.1     Es_coli_O157_H7_Sakai_NP_311593
+#YP_005228417.1  Kle_pneumon_pneumoniae_HS11286_YP_005228417
+#NP_461761.1     Salm_enterica_enterica_Typhimurium_LT2_NP_461761
+#NP_708517.1     Shig_fle_2a_301_NP_708517
 #NP_254038.1     Pseudom_aeru_PAO1_NP_254038
 #NP_254037.1     Pseudom_aeru_PAO1_NP_254037
 #YP_002517953.1  Cau_vib_NA1000_YP_002517953
 #NP_217767.1     My_tube_H37Rv_NP_217767
+#NP_217768.1     My_tube_H37Rv_NP_217768
 ```
 
 - Counting copies of each strain
@@ -142,7 +146,7 @@ cat PROTEINS/all.strain.tsv |
     > Rubr/strains.copy.tsv
 
 wc -l Rubr/strains.copy.tsv
-#1505 Rubr/strains.copy.tsv
+#1567 Rubr/strains.copy.tsv
 # all strains passed up to 1952, so there are strains missing the Rubredoxin
 
 cat strains.lst |
@@ -179,38 +183,50 @@ cat ASSEMBLY/Pseudomonas.assembly.pass.csv |
 # all strains are 2 copy in a species
 tsv-join --filter-file Rubr/species.count.tsv \
 -k 1 --append-fields 2 Rubr/species.2copy.tsv |
-    tsv-filter --ff-eq 2:3
-#Acidihalobacter yilgarnensis    1       1
-#Alkalilimnicola ehrlichii       1       1
-#Legionella longbeachae  1       1
-#Legionella sainthelensi 1       1
-#Methylocaldum marinum   1       1
-#Methylogaea oryzae      1       1
-#Methylomicrobium album  1       1
-#Methylomonas denitrificans      1       1
-#Methylomonas koyamae    1       1
-#Methylomonas methanica  1       1
-#Methylotuvimicrobium alcaliphilum       1       1
-#Methylotuvimicrobium buryatense 1       1
-#Methylovulum psychrotolerans    1       1
-#Pseudomonas aeruginosa  391     391
-#Pseudomonas alcaligenes 3       3
-#Pseudomonas citronellolis       2       2
-#Pseudomonas knackmussii 2       2
-#Pseudomonas lalkuanensis        2       2
-#Pseudomonas otitidis    3       3
-#Pseudomonas sessilinigenes      2       2
-#Pseudoxanthomonas spadix        1       1
-#Spiribacter curvatus    1       1
-#Sulfurivermis fontis    1       1
-#Thioalkalivibrio sulfidiphilus  1       1
+    tsv-filter --ff-eq 2:3 |
+    mlr --itsv --omd cat
 ```
 
-### Compare protein seqs with TIGRFAM using hmmscan
+| Acidihalobacter aeolianus         | 1   | 1_2 |
+|-----------------------------------|-----|-----|
+| Acidihalobacter yilgarnensis      | 1   | 1   |
+| Alkalilimnicola ehrlichii         | 1   | 1   |
+| Azotobacter chroococcum           | 3   | 3   |
+| Legionella longbeachae            | 1   | 1   |
+| Legionella sainthelensi           | 1   | 1   |
+| Marinobacter nauticus             | 2   | 2   |
+| Methylocaldum marinum             | 1   | 1   |
+| Methylogaea oryzae                | 1   | 1   |
+| Methylomicrobium album            | 1   | 1   |
+| Methylomonas denitrificans        | 1   | 1   |
+| Methylomonas koyamae              | 1   | 1   |
+| Methylomonas methanica            | 1   | 1   |
+| Methylomonas rhizoryzae           | 1   | 1   |
+| Methylotuvimicrobium alcaliphilum | 1   | 1   |
+| Methylotuvimicrobium buryatense   | 1   | 1   |
+| Methylovulum psychrotolerans      | 1   | 1   |
+| Moraxella catarrhalis             | 16  | 16  |
+| Mycobacterium tuberculosis        | 1   | 1   |
+| Plesiomonas shigelloides          | 1   | 1   |
+| Pseudomonas aeruginosa            | 391 | 391 |
+| Pseudomonas alcaligenes           | 3   | 3   |
+| Pseudomonas citronellolis         | 2   | 2   |
+| Pseudomonas knackmussii           | 2   | 2   |
+| Pseudomonas lalkuanensis          | 2   | 2   |
+| Pseudomonas otitidis              | 3   | 3   |
+| Pseudomonas sessilinigenes        | 2   | 2   |
+| Pseudoxanthomonas spadix          | 1   | 1   |
+| Spiribacter curvatus              | 1   | 1   |
+| Sulfurivermis fontis              | 1   | 1   |
+| Thioalkalivibrio sulfidiphilus    | 1   | 1   |
 
-TIGRFAM database could be seen in [hmm.md](hmm.md)
+### Compare protein seqs with PFAM using hmmscan
+
+TIGRFAM/PFAM database could be seen in [hmm.md](hmm.md)
 
 The previous step: [hmmsearch for Rubredoxin](#hmmsearch-for-rubredoxin) used the HMMs of Rubredoxin domain to search against strain protein files and finally got all proteins with that domain. This step is adopted to exclude those proteins with the domain but not our targets.
+
+The reason of using PFAM database: only take into account of domain HMM from PFAM db.
 
 - `hmmscan` for strains filtering
 
@@ -231,12 +247,12 @@ faops some PROTEINS/all.replace.fa <(tsv-select -f 2 Rubr/Rubredoxin.replace.tsv
 
 # using protein seqs to scan directly in PFAM database
 E_VALUE=1e-10
-if [ ! -s Rubr/HMM/Pfam-A.hmm ]; then
-    echo no Pfam
 #if [ ! -s Rubr/HMM/PGAP.hmm ]; then
 #    echo no PGAP
 #if [ ! -s Rubr/HMM/PGAP.hmm ]; then
 #    echo no TIGRFAM
+if [ ! -s Rubr/HMM/Pfam-A.hmm ]; then
+    echo no Pfam
     exit
 else
     echo >&2 hmmscan start: Rubr
@@ -244,6 +260,7 @@ else
         -o Rubr/Rubr.pfam.txt --tblout Rubr/Rubr.pfam.tbl \
         Rubr/HMM/Pfam-A.hmm Rubr/Rubr.fa
     echo hmmscan complete
+fi
 #    hmmscan --cpu 6 -E ${E_VALUE} --domE ${E_VALUE} --noali --notextw \
 #        -o Rubr/Rubr.pgap.txt --tblout Rubr/Rubr.pgap.tbl \
 #        Rubr/HMM/PGAP.hmm Rubr/Rubr.fa
@@ -252,11 +269,10 @@ else
 #        -o Rubr/Rubr.tigrfam.txt --tblout Rubr/Rubr.tigrfam.tbl \
 #        Rubr/HMM/TIGRFAM.hmm Rubr/Rubr.fa
 #    echo hmmscan complete
-fi
 
 # reformat and extract results from tbl
 cat Rubr/Rubr.pfam.tbl |
-    grep '^' |
+    grep -v '^#' |
     perl -nl -e '$string = $_;@p = ();
     for ($i = 1; $i <= 19; $i++){
     if($i != 19){
@@ -269,29 +285,33 @@ cat Rubr/Rubr.pfam.tbl |
     print join ("\t", @p);
     ' > Rubr/Rubr.pfam.tsv
 
-cat Rubr/Rubr.pgap.tsv |
+cat Rubr/Rubr.pfam.tsv |
     tsv-select -f 1 |
-    tsv-uniq |
-    wc -l
-#30
+    tsv-uniq
+#Rubredoxin
+#Pyr_redox_2
+#Pyr_redox
+#Pyr_redox_3
+#Rbx_binding
+#Lycopene_cycl
 # This means hmmscan will give you more than 1 domains
 
 cat Rubr/Rubr.fa | grep '^>' | wc -l
 #1990
 # Total 1990 protein seqs were used for hmmscan
 
-cat Rubr/Rubr.pgap.tsv | grep -v '^#' | wc -l
-#2238
-# Got 2238 lines, one protein may had more than 1 hit by hmmscan
+cat Rubr/Rubr.pfam.tsv | grep -v '^#' | wc -l
+#2027
+# Got 2027 lines, one protein may had more than 1 hit by hmmscan
 
-cat Rubr/Rubr.pgap.tsv |
+cat Rubr/Rubr.pfam.tsv |
     tsv-select -f 3 |
     tsv-uniq |
     wc -l
-#1983
-# Got 1983 results
+#1990
+# All proteins completed hmmscan
 
-cat Rubr/Rubr.pgap.tsv | tsv-select -f 3 | tsv-uniq --repeated
+cat Rubr/Rubr.pfam.tsv | tsv-select -f 3 | tsv-uniq --repeated
 #Alk_ehr_MLHE_1_GCF_000014785_1_WP_011628506
 #Alt_mac_GCF_903772925_1_WP_179983007
 #Halot_nea_c2_GCF_000024765_1_WP_012825058
@@ -307,22 +327,26 @@ cat Rubr/Rubr.pgap.tsv | tsv-select -f 3 | tsv-uniq --repeated
 #Thioa_versu_GCF_001020955_1_WP_047251304
 # with more than 1 hit after hmmscan
 
-cat Rubr/Rubr.pgap.tsv |
+cat Rubr/Rubr.pfam.tsv |
     tsv-summarize -g 1 --count |
-    sort -r -nk 2,2 |
-    head -n 1
-#PRK05452.1      1973
-# PRK05452.1: anaerobic nitric oxide reductase flavorubredoxin (Conserved Protein Domain Family in NCBI)
+    sort -r -nk 2,2
+#Rubredoxin      1990
+#Pyr_redox_2     13
+#Pyr_redox       13
+#Pyr_redox_3     9
+#Rbx_binding     1
+#Lycopene_cycl   1
+# Got 1990 Rubredoxin = Rubr.fa num of seqs
 
 # keep the minimum E-value strain-protein id and move them into a LIST
-cat Rubr/Rubr.pgap.tsv |
+cat Rubr/Rubr.pfam.tsv |
     tsv-select -f 3,5 |
     tsv-summarize -g 1 --min 2 |
     cut -f 1 \
     > Rubr/Rubr.Emin.lst
 
 wc -l Rubr/Rubr.Emin.lst
-#1983 Rubr/Rubr.Emin.lst
+#1990 Rubr/Rubr.Emin.lst
 ```
 
 - Counting copies of each strain
