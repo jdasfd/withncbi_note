@@ -27,8 +27,8 @@ nwr txdb
 Use `taxon/gb_taxon_locus.pl` to extract info from RefSeq files.
 
 ```bash
-mkdir -p /mnt/e/data/mito/GENOMES
-cd /mnt/e/data/mito/GENOMES
+mkdir -p ~/data/mito/GENOMES
+cd ~/data/mito/GENOMES
 
 wget -N ftp://ftp.ncbi.nlm.nih.gov/genomes/refseq/mitochondrion/mitochondrion.1.genomic.gbff.gz
 wget -N ftp://ftp.ncbi.nlm.nih.gov/genomes/refseq/mitochondrion/mitochondrion.2.genomic.gbff.gz
@@ -71,7 +71,7 @@ Eukaryota (2759)
 All living green plants belong to the major phylums including Streptophyta and Chlorophyta.
 
 ```bash
-cd /mnt/e/data/mito/GENOMES
+cd ~/data/mito/GENOMES
 
 # Viridiplantae 33090
 echo -e '#tax_id\taccession' > plant_id_seq.tsv # add headline
@@ -115,8 +115,8 @@ Give ids better shapes for manually checking and automatic filtering.
 If you sure, you can add or delete lines and contents in `CHECKME.tsv`.
 
 ```bash
-mkdir -p /mnt/e/data/mito/summary
-cd /mnt/e/data/mito/summary
+mkdir -p ~/data/mito/summary
+cd ~/data/mito/summary
 
 # generate a TSV file for manually checking
 cat ../GENOMES/plant_id_seq.tsv |
