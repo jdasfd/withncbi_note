@@ -102,7 +102,26 @@ Look inside `plant_id_seq.tsv` and remove redundancies
 # Cucumis sativus has 3 chromosomes
 # Brassica napus linear plasmid NC_004946
 # Polytomella parva has 2 chromosomes
-# Polytomella sp. SAG 63-10 has 2 chromosomes
+# Polytomella piriformis (includes Polytomella sp. Pringsheim 63-10) has 2 chromosomes
 
-sed -i".bak" "/,NC_004946$/d" plant_id_seq.csv # Brassica napus
+sed -i".bak" "/NC_004946$/d" plant_id_seq.tsv #  napus
+# .bak: often means filename extension commonly useBrassicad to signify a backup copy of a file
+```
+
+## Add lineage information
+
+Give ids better shapes for manually checking and automatic filtering.
+
+If you sure, you can add or delete lines and contents in `CHECKME.tsv`.
+
+```bash
+mkdir -p /mnt/e/data/mito/summary
+cd /mnt/e/data/mito/summary
+
+# generate a TSV file for manually checking
+cat ../GENOMES/plant_id_seq.tsv |
+    nwr append stdin |
+    nwr append stdin -r species -r genus -r family -r order -r class -r phylum |
+    keep-header -- sort -k9,9 -k8,8 -k7,7 -k6,6 -k5,5 \
+    > CHECKME.tsv
 ```
