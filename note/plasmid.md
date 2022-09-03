@@ -14,8 +14,8 @@ I rewrote some commands according to my own demanding and added some notes in co
 ## NCBI RefSeq
 
 ```bash
-mkdir -p /mnt/d/data/plasmid
-cd /mnt/d/data/plasmid
+mkdir -p ~/data/plasmid
+cd ~/data/plasmid
 
 rsync -avP ftp.ncbi.nlm.nih.gov::refseq/release/plasmid/RefSeq/
 ```
@@ -69,8 +69,8 @@ gzip -dcf RefSeq/*.genomic.fna.gz > RefSeq/plasmid.fa
 ## MinHash to get non-redundant plasmids
 
 ```bash
-mkdir /mnt/d/data/plasmid/nr
-cd /mnt/d/data/plasmid/nr
+mkdir ~/data/plasmid/nr
+cd ~/data/plasmid/nr
 
 faops size ../RefSeq/plasmid.fa > refseq.sizes
 
@@ -92,7 +92,7 @@ Sketches could reduce representations of sequences for `mash` comparison. Sketch
 `mash sketch -h` could give you the help information.
 
 ```bash
-cd /mnt/d/data/plasmid/nr
+cd ~/data/plasmid/nr
 
 cat refseq.fa | 
     mash sketch -k 21 -s 1000 -i -p 8 - -o refseq.plasmid.k21s1000.msh
@@ -116,7 +116,7 @@ cat refseq.fa |
 This step is using `split` to split a big file `refseq.fa` into small pieces, then using files splited in `mash sketch` (parallel could reduce time).
 
 ```bash
-cd /mnt/d/data/plasmid/nr
+cd ~/data/plasmid/nr
 mkdir -p job
 faops size refseq.fa |
     cut -f 1 |
@@ -159,7 +159,7 @@ Estimate the distance of each query sequence to the reference. Both the referenc
 Usage: `mash dist [options] <reference> <query> [<query>] ...`
 
 ```bash
-cd /mnt/d/data/plasmid/nr
+cd ~/data/plasmid/nr
 
 # Count distance from all .msh results
 find job -maxdepth 1 -type f -name "[0-9]??" | sort |
@@ -285,8 +285,8 @@ All non-redundant plasmids got from the previous steps will be grouped by MinHas
 - MinHash algorithm for representing reads
 
 ```bash
-mkdir /mnt/d/data/plasmid/grouping
-cd /mnt/d/data/plasmid/grouping
+mkdir ~/data/plasmid/grouping
+cd ~/data/plasmid/grouping
 
 cat ../nr/refseq.nr.fa |
     mash sketch -k 21 -s 1000 -i -p 8 - -o refseq.nr.k21s1000.msh
@@ -665,10 +665,10 @@ wc -l next.tsv
 - Split sequences
 
 ```bash
-mkdir /mnt/d/data/plasmid/GENOMES
-mkdir /mnt/d/data/plasmid/taxon
+mkdir ~/data/plasmid/GENOMES
+mkdir ~/data/plasmid/taxon
 
-cd /mnt/d/data/plasmid/grouping
+cd ~/data/plasmid/grouping
 
 echo -e "#Serial\tGroup\tCount\tTarget" > ../taxon/group_target.tsv
 
@@ -728,7 +728,7 @@ find ../GENOMES -maxdepth 2 -mindepth 2 -type f -name "*.fa" | sort |
 - `prepseq`
 
 ```bash
-cd /mnt/d/data/plasmid/
+cd ~/data/plasmid/
 
 cat taxon/group_target.tsv |
     sed -e '1d' |
@@ -750,7 +750,7 @@ cat taxon/group_target.tsv |
 - Check outliers of lengths
 
 ```bash
-cd /mnt/d/data/plasmid/
+cd ~/data/plasmid/
 
 cat taxon/*.sizes | cut -f 1 | wc -l
 #14454
@@ -795,12 +795,12 @@ cat taxon/*.sizes | cut -f 2 | paste -sd+ | bc
 - Rsync to HPCC
 
 ```bash
-rsync -avP /mnt/d/data/plasmid \
+rsync -avP ~/data/plasmid \
     wangq@202.119.37.251:jyq/data/
-# if /mnt/d/data/plasmid do not contained the '/' at the end, then it will transform a whole dir to hpcc\
+# if ~/data/plasmid do not contained the '/' at the end, then it will transform a whole dir to hpcc\
 ```
 
-## Plamid: run
+## Plasmid: run
 
 After sending the dir to HPCC, the operating path will be the path on HPCC.
 
