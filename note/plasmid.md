@@ -742,7 +742,7 @@ cat taxon/group_target.tsv |
 # e.g. a line in group_target.tsv | sed -e '1d' : "1       1_4     679     NC_002122"
 # so that the next command line could be translated in:
 # for name in $(cat taxon/1_4.sizes | cut -f 1); do
-#   egaz prepseq GENOMES/1_4/NC_002122 ...
+#     egaz prepseq GENOMES/1_4/NC_002122 ...
 # done
 # because we put the strains.fa into its own name dir, and egaz prepseq will accept the dir
 ```
